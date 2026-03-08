@@ -1,4 +1,4 @@
-import { readDB } from "@/lib/db";
+import { readDBAsync } from "@/lib/db";
 import { NextResponse } from "next/server";
 
 export async function POST(req) {
@@ -8,7 +8,7 @@ export async function POST(req) {
         return NextResponse.json({ error: "Vui lòng nhập username và mật khẩu" }, { status: 400 });
     }
 
-    const db = readDB();
+    const db = await readDBAsync();
 
     // Case-insensitive username lookup
     const member = db.members.find(
@@ -23,10 +23,9 @@ export async function POST(req) {
         return NextResponse.json({ error: "Sai mật khẩu" }, { status: 401 });
     }
 
-    // Create session token (simple base64 token for dev)
+    // Create session token
     const token = Buffer.from(`${member.id}:${Date.now()}`).toString("base64");
 
-    // Return user data without password
     const { password: _, ...safeUser } = member;
     return NextResponse.json({ user: safeUser, token }, { status: 200 });
 }

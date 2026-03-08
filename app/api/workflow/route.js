@@ -1,14 +1,14 @@
-import { readDB, writeDB } from "@/lib/db";
+import { readDBAsync, writeDBAsync } from "@/lib/db";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-    const db = readDB();
+    const db = await readDBAsync();
     return NextResponse.json(db.workflow || null);
 }
 
 export async function POST(req) {
     const body = await req.json();
-    const db = readDB();
+    const db = await readDBAsync();
 
     if (!db.workflow) {
         return NextResponse.json({ error: "No workflow data" }, { status: 404 });
@@ -18,7 +18,7 @@ export async function POST(req) {
         const idx = db.workflow.steps.findIndex(s => s.id === body.stepId);
         if (idx === -1) return NextResponse.json({ error: "Step not found" }, { status: 404 });
         db.workflow.steps[idx].status = body.status;
-        writeDB(db);
+        await writeDBAsync(db);
         return NextResponse.json(db.workflow.steps[idx]);
     }
 
@@ -32,7 +32,7 @@ export async function POST(req) {
             blockers: body.blockers || "Không có",
         };
         db.workflow.dailyStandups.push(entry);
-        writeDB(db);
+        await writeDBAsync(db);
         return NextResponse.json(entry, { status: 201 });
     }
 

@@ -1,16 +1,15 @@
-import { readDB, writeDB } from "@/lib/db";
+import { readDBAsync, writeDBAsync } from "@/lib/db";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-    const db = readDB();
+    const db = await readDBAsync();
     return NextResponse.json(db.tasks);
 }
 
 export async function POST(req) {
     const body = await req.json();
-    const db = readDB();
+    const db = await readDBAsync();
 
-    // Handle different actions
     if (body.action === "create") {
         const num = db.nextTaskNum || db.tasks.length + 1;
         const id = `T-${String(num).padStart(3, "0")}`;
@@ -28,7 +27,6 @@ export async function POST(req) {
         db.tasks.push(task);
         db.nextTaskNum = num + 1;
 
-        // Auto-create activity
         db.activities.push({
             id: Date.now(),
             ts: Date.now(),
@@ -39,17 +37,15 @@ export async function POST(req) {
             assignee: body.owner,
         });
 
-        writeDB(db);
+        await writeDBAsync(db);
         return NextResponse.json(task, { status: 201 });
     }
 
     if (body.action === "status") {
         const idx = db.tasks.findIndex(t => t.id === body.taskId);
         if (idx === -1) return NextResponse.json({ error: "Not found" }, { status: 404 });
-        const oldStatus = db.tasks[idx].status;
         db.tasks[idx].status = body.status;
 
-        // Auto-create activity
         const STATUS_LABELS = { todo: "Todo", doing: "Đang làm", review: "Review", done: "Hoàn thành", blocked: "Blocked" };
         db.activities.push({
             id: Date.now(),
@@ -61,7 +57,7 @@ export async function POST(req) {
             taskId: body.taskId,
         });
 
-        writeDB(db);
+        await writeDBAsync(db);
         return NextResponse.json(db.tasks[idx]);
     }
 
@@ -71,7 +67,6 @@ export async function POST(req) {
         const comment = { author: body.author, text: body.text, ts: Date.now() };
         db.tasks[idx].comments.push(comment);
 
-        // Auto-create activity
         db.activities.push({
             id: Date.now(),
             ts: Date.now(),
@@ -82,7 +77,7 @@ export async function POST(req) {
             taskId: body.taskId,
         });
 
-        writeDB(db);
+        await writeDBAsync(db);
         return NextResponse.json(comment, { status: 201 });
     }
 
@@ -91,10 +86,10 @@ export async function POST(req) {
 
 export async function PUT(req) {
     const body = await req.json();
-    const db = readDB();
+    const db = await readDBAsync();
     const idx = db.tasks.findIndex(t => t.id === body.id);
     if (idx === -1) return NextResponse.json({ error: "Not found" }, { status: 404 });
     db.tasks[idx] = { ...db.tasks[idx], ...body };
-    writeDB(db);
+    await writeDBAsync(db);
     return NextResponse.json(db.tasks[idx]);
 }
