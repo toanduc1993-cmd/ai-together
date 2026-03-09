@@ -509,7 +509,7 @@ export default function ProjectDetailPage({ params }) {
                                         {canComplete && (() => {
                                             const allDone = items.length > 0 && items.every(t => t.status === "done");
                                             return allDone ? (
-                                                <ActionBtn label="✅ Hoàn thành" bgColor="#10B981" onClick={(e) => { e.stopPropagation(); updateModuleStatus(mod.id, "in_review"); }} />
+                                                <ActionBtn label="📋 Báo cáo hoàn thành" bgColor="#10B981" onClick={(e) => { e.stopPropagation(); updateModuleStatus(mod.id, "in_review"); }} />
                                             ) : (
                                                 <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#F59E0B", background: "#F59E0B18", padding: "6px 14px", borderRadius: 8, fontWeight: 600 }}>
                                                     ⚠️ Cần nộp tài liệu tất cả checklist ({items.filter(t => t.status === "done").length}/{items.length})
@@ -648,7 +648,7 @@ export default function ProjectDetailPage({ params }) {
                                                 {isOwner && (mod.status === "in_progress" || mod.status === "changes_requested") && (
                                                     <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border-primary)" }}>
                                                         <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-tertiary)", marginBottom: 4, display: "block" }}>
-                                                            🔗 Link demo & Hướng dẫn kiểm thử
+                                                            💬 Comment
                                                         </label>
                                                         <textarea
                                                             defaultValue={item.description || ""}
@@ -657,7 +657,7 @@ export default function ProjectDetailPage({ params }) {
                                                                     updateTaskComment(item.id, e.target.value, mod.id);
                                                                 }
                                                             }}
-                                                            placeholder="Nhập link demo, hướng dẫn kiểm thử..."
+                                                            placeholder="Nhập comment, link demo, hướng dẫn..."
                                                             className="input-field"
                                                             rows={2}
                                                             style={{ width: "100%", fontSize: 13, resize: "vertical", minHeight: 48 }}
@@ -667,7 +667,7 @@ export default function ProjectDetailPage({ params }) {
                                                 {/* Show saved comment for everyone */}
                                                 {item.description && !(isOwner && (mod.status === "in_progress" || mod.status === "changes_requested")) && (
                                                     <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border-primary)", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>
-                                                        <span style={{ fontWeight: 600, color: "var(--text-tertiary)", fontSize: 12 }}>🔗 Link demo & Hướng dẫn:</span>
+                                                        <span style={{ fontWeight: 600, color: "var(--text-tertiary)", fontSize: 12 }}>💬 Comment:</span>
                                                         <div style={{ marginTop: 4, whiteSpace: "pre-wrap" }}>{item.description}</div>
                                                     </div>
                                                 )}

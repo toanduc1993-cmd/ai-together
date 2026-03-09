@@ -22,6 +22,28 @@ export default function Layout({ children }) {
     const [collapsed, setCollapsed] = useState(false);
     const [showNotif, setShowNotif] = useState(false);
     const [dark, setDark] = useState(false);
+    const [myTaskCount, setMyTaskCount] = useState(0);
+
+    // Fetch assigned module count for badge
+    useEffect(() => {
+        if (!currentUser) return;
+        const fetchCount = async () => {
+            try {
+                const pRes = await fetch("/api/projects").then(r => r.json());
+                const projects = Array.isArray(pRes) ? pRes : [];
+                let total = 0;
+                for (const p of projects) {
+                    const mRes = await fetch(`/api/modules?project_id=${p.id}`).then(r => r.json());
+                    const mods = Array.isArray(mRes) ? mRes : [];
+                    total += mods.filter(m => m.assigned_to === currentUser.id && m.status !== "done").length;
+                }
+                setMyTaskCount(total);
+            } catch { }
+        };
+        fetchCount();
+        const interval = setInterval(fetchCount, 30000);
+        return () => clearInterval(interval);
+    }, [currentUser]);
 
     useEffect(() => {
         if (typeof window !== "undefined" && localStorage.getItem("theme") === "dark") setDark(true);
@@ -90,7 +112,14 @@ export default function Layout({ children }) {
                             }}>
                                 {active && <div style={{ position: "absolute", left: 0, top: "50%", transform: "translateY(-50%)", width: 3, height: 24, borderRadius: 4, background: "var(--accent)" }} />}
                                 <Icon size={22} strokeWidth={active ? 2.2 : 1.8} />
-                                {!collapsed && <span>{n.label}</span>}
+                                {!collapsed && <span style={{ flex: 1 }}>{n.label}</span>}
+                                {!collapsed && n.href === "/my-tasks" && myTaskCount > 0 && (
+                                    <span style={{
+                                        background: "var(--red)", color: "#fff", fontSize: 11, fontWeight: 700,
+                                        minWidth: 20, height: 20, borderRadius: 10, display: "flex",
+                                        alignItems: "center", justifyContent: "center", padding: "0 5px",
+                                    }}>{myTaskCount}</span>
+                                )}
                             </Link>
                         );
                     })}
