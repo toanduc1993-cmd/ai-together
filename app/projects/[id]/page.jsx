@@ -57,6 +57,8 @@ export default function ProjectDetailPage({ params }) {
     const [deadlineDate, setDeadlineDate] = useState("");
     const fileInputRef = useRef(null);
     const taskFileRef = useRef(null);
+    const [editingObjective, setEditingObjective] = useState(false);
+    const [objectiveText, setObjectiveText] = useState("");
 
     const reload = async () => {
         try {
@@ -331,6 +333,54 @@ export default function ProjectDetailPage({ params }) {
             </div>
             {project.description && <p style={{ color: "var(--text-tertiary)", fontSize: 15, marginBottom: 18, lineHeight: 1.6 }}>{project.description}</p>}
 
+            {/* ===== PROJECT OBJECTIVE ===== */}
+            <div className="glass-card" style={{ padding: "18px 22px", marginBottom: 20 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
+                        🎯 Mục tiêu dự án
+                    </h3>
+                    {isChairman && (
+                        editingObjective ? (
+                            <div style={{ display: "flex", gap: 6 }}>
+                                <button onClick={async () => {
+                                    await fetch("/api/projects", {
+                                        method: "PUT", headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ id, description: objectiveText }),
+                                    });
+                                    setEditingObjective(false);
+                                    reload();
+                                }} className="btn-primary" style={{ padding: "6px 16px", fontSize: 13 }}>
+                                    💾 Lưu
+                                </button>
+                                <button onClick={() => { setEditingObjective(false); setObjectiveText(project.description || ""); }}
+                                    className="btn-ghost" style={{ padding: "6px 12px", fontSize: 13 }}>
+                                    Hủy
+                                </button>
+                            </div>
+                        ) : (
+                            <button onClick={() => { setEditingObjective(true); setObjectiveText(project.description || ""); }}
+                                className="btn-ghost" style={{ padding: "6px 14px", fontSize: 13, display: "flex", alignItems: "center", gap: 4 }}>
+                                ✏️ Chỉnh sửa
+                            </button>
+                        )
+                    )}
+                </div>
+                {editingObjective ? (
+                    <textarea
+                        value={objectiveText}
+                        onChange={(e) => setObjectiveText(e.target.value)}
+                        placeholder="Nhập mục tiêu tổng thể của dự án..."
+                        className="input-field"
+                        rows={4}
+                        style={{ width: "100%", fontSize: 14, resize: "vertical", minHeight: 80, lineHeight: 1.6 }}
+                    />
+                ) : (
+                    <div style={{ fontSize: 14, color: project.description ? "var(--text-secondary)" : "var(--text-muted)", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+                        {project.description || "Chưa có mục tiêu. Chủ tịch có thể nhấn \"Chỉnh sửa\" để thêm."}
+                    </div>
+                )}
+            </div>
+
             {/* ===== PROJECT DOCUMENTS SECTION ===== */}
             <div className="glass-card" style={{ padding: "18px 22px", marginBottom: 20 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -478,6 +528,24 @@ export default function ProjectDetailPage({ params }) {
                                                 input.type = "file"; input.multiple = true;
                                                 input.onchange = (ev) => { if (ev.target.files.length) uploadFiles(mod.id, ev.target.files); };
                                                 input.click();
+                                            }} />
+                                        )}
+                                        {/* Chairman: Giao việc button */}
+                                        {isChairman && mod.status === "planned" && mod.assigned_to && (
+                                            <ActionBtn label="📨 Giao việc" bgColor="#8B5CF6" onClick={async (e) => {
+                                                e.stopPropagation();
+                                                // Send notification to assigned user
+                                                await fetch("/api/notifications", {
+                                                    method: "POST", headers: { "Content-Type": "application/json" },
+                                                    body: JSON.stringify({
+                                                        user_id: mod.assigned_to,
+                                                        type: "module_assigned",
+                                                        title: `Bạn được giao module "${mod.title}"`,
+                                                        body: `${currentUser.display_name} đã giao việc module "${mod.title}" trong dự án ${project?.title}. Vui lòng vào "Công việc của tôi" để bắt đầu.`,
+                                                        entity_type: "module", entity_id: mod.id,
+                                                    }),
+                                                });
+                                                alert(`Đã giao việc module "${mod.title}" cho ${mod.assignee?.display_name || "nhân sự"} thành công!`);
                                             }} />
                                         )}
                                     </div>
