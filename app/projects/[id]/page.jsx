@@ -103,6 +103,19 @@ export default function ProjectDetailPage({ params }) {
             body: JSON.stringify({ ...form, project_id: id, created_by: currentUser.id }),
         });
         if (!res.ok) { setError((await res.json()).error); return; }
+        // Notify assigned user about new module
+        if (form.assigned_to && form.assigned_to !== currentUser.id) {
+            await fetch("/api/notifications", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    user_id: form.assigned_to,
+                    type: "module_assigned",
+                    title: `Bạn được giao module "${form.title}" trong dự án ${project?.title || ""}`,
+                    body: `${currentUser.display_name} đã giao cho bạn một module mới. Vui lòng kiểm tra tại "Công việc của tôi".`,
+                    entity_type: "module", entity_id: id,
+                }),
+            });
+        }
         setShowAddModule(false); setForm({}); reload();
     };
 
