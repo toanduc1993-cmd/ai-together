@@ -75,19 +75,22 @@ export async function PUT(req) {
         if (!body.id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
         const { id, user_id, project_id, ...updates } = body;
 
-        // If status changed, log activity
+        // If status changed, log activity with module name
         if (updates.status && user_id) {
             const STATUS_LABELS = {
-                planned: "Kế hoạch", in_progress: "Đang phát triển", review: "Review",
-                submitted: "Đã nộp", approved: "Phê duyệt", changes_requested: "Yêu cầu sửa",
-                rejected: "Từ chối", done: "Hoàn thành"
+                planned: "Kế hoạch", in_progress: "Đang thực hiện", in_review: "Chờ duyệt",
+                review: "Review", submitted: "Đã nộp", approved: "Phê duyệt",
+                changes_requested: "Yêu cầu sửa", rejected: "Từ chối", done: "Hoàn thành"
             };
+            // Fetch current module to get title
+            const currentMod = await getModuleById(id);
+            const modTitle = currentMod?.title || "module";
             await createActivity({
                 user_id: user_id,
                 action_type: "module_status_changed",
                 entity_type: "module",
                 entity_id: id,
-                detail: `Chuyển module → ${STATUS_LABELS[updates.status] || updates.status}`,
+                detail: `Chuyển "${modTitle}" → ${STATUS_LABELS[updates.status] || updates.status}`,
                 project_id: project_id,
             });
         }
