@@ -73,22 +73,22 @@ export async function PUT(req) {
     try {
         const body = await req.json();
         if (!body.id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
-        const { id, ...updates } = body;
+        const { id, user_id, project_id, ...updates } = body;
 
         // If status changed, log activity
-        if (updates.status && body.user_id) {
+        if (updates.status && user_id) {
             const STATUS_LABELS = {
                 planned: "Kế hoạch", in_progress: "Đang phát triển", review: "Review",
                 submitted: "Đã nộp", approved: "Phê duyệt", changes_requested: "Yêu cầu sửa",
                 rejected: "Từ chối", done: "Hoàn thành"
             };
             await createActivity({
-                user_id: body.user_id,
+                user_id: user_id,
                 action_type: "module_status_changed",
                 entity_type: "module",
                 entity_id: id,
                 detail: `Chuyển module → ${STATUS_LABELS[updates.status] || updates.status}`,
-                project_id: body.project_id,
+                project_id: project_id,
             });
         }
 
