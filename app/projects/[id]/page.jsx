@@ -103,6 +103,17 @@ export default function ProjectDetailPage({ params }) {
             body: JSON.stringify({ ...form, project_id: id, created_by: currentUser.id }),
         });
         if (!res.ok) { setError((await res.json()).error); return; }
+        const newModule = await res.json();
+
+        // Auto-create 3 default checklists
+        const defaults = ["Change Log", "TASK_REGISTRY", "Source Code"];
+        for (const title of defaults) {
+            await fetch("/api/checklist", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ title, module_id: newModule.id, assigned_by: currentUser.id, project_id: id }),
+            });
+        }
+
         // Notify assigned user about new module
         if (form.assigned_to && form.assigned_to !== currentUser.id) {
             await fetch("/api/notifications", {
@@ -137,6 +148,14 @@ export default function ProjectDetailPage({ params }) {
             body: JSON.stringify({ id: itemId, status, user_id: currentUser.id, project_id: id }),
         });
         loadChecklist(moduleId); reload();
+    };
+
+    const updateTaskComment = async (itemId, comment, moduleId) => {
+        await fetch("/api/checklist", {
+            method: "PUT", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: itemId, description: comment, user_id: currentUser.id, project_id: id }),
+        });
+        loadChecklist(moduleId);
     };
 
     const updateModuleStatus = async (moduleId, status, extraData = {}) => {
@@ -474,6 +493,35 @@ export default function ProjectDetailPage({ params }) {
                                                         </button>
                                                     )}
                                                 </div>
+
+                                                {/* Comment / Demo link input for assigned user */}
+                                                {isOwner && (mod.status === "in_progress" || mod.status === "changes_requested") && (
+                                                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border-primary)" }}>
+                                                        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-tertiary)", marginBottom: 4, display: "block" }}>
+                                                            🔗 Link demo & Hướng dẫn kiểm thử
+                                                        </label>
+                                                        <textarea
+                                                            defaultValue={item.description || ""}
+                                                            onBlur={(e) => {
+                                                                if (e.target.value !== (item.description || "")) {
+                                                                    updateTaskComment(item.id, e.target.value, mod.id);
+                                                                }
+                                                            }}
+                                                            placeholder="Nhập link demo, hướng dẫn kiểm thử..."
+                                                            className="input-field"
+                                                            rows={2}
+                                                            style={{ width: "100%", fontSize: 13, resize: "vertical", minHeight: 48 }}
+                                                        />
+                                                    </div>
+                                                )}
+                                                {/* Show saved comment for everyone */}
+                                                {item.description && !(isOwner && (mod.status === "in_progress" || mod.status === "changes_requested")) && (
+                                                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border-primary)", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                                                        <span style={{ fontWeight: 600, color: "var(--text-tertiary)", fontSize: 12 }}>🔗 Link demo & Hướng dẫn:</span>
+                                                        <div style={{ marginTop: 4, whiteSpace: "pre-wrap" }}>{item.description}</div>
+                                                    </div>
+                                                )}
+
                                                 {/* Show task files */}
                                                 {taskFiles.length > 0 && (
                                                     <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border-primary)" }}>
