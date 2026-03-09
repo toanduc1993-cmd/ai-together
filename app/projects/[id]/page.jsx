@@ -175,7 +175,7 @@ export default function ProjectDetailPage({ params }) {
     const updateModuleStatus = async (moduleId, status, extraData = {}) => {
         await fetch("/api/modules", {
             method: "PUT", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: moduleId, status, ...extraData, user_id: currentUser.id, project_id: id }),
+            body: JSON.stringify({ id: moduleId, status, review_comment: extraData.review_comment || null, ...extraData, user_id: currentUser.id, project_id: id }),
         });
         const mod = modules.find(m => m.id === moduleId);
         const STATUS_LABELS = { planned: "Kế hoạch", in_progress: "Đang thực hiện", in_review: "Chờ duyệt", done: "Hoàn thành", approved: "Phê duyệt", changes_requested: "Yêu cầu sửa" };
@@ -193,7 +193,7 @@ export default function ProjectDetailPage({ params }) {
                 }),
             });
         }
-        // If chairman takes action → notify assigned user
+        // If chairman takes action → notify assigned user with comment
         if (mod?.assigned_to && mod.assigned_to !== currentUser.id) {
             await fetch("/api/notifications", {
                 method: "POST", headers: { "Content-Type": "application/json" },
@@ -201,7 +201,7 @@ export default function ProjectDetailPage({ params }) {
                     user_id: mod.assigned_to,
                     type: "module_status_changed",
                     title: `Module "${mod?.title}" → ${STATUS_LABELS[status] || status}`,
-                    body: `${currentUser.display_name} đã chuyển trạng thái module của bạn.`,
+                    body: extraData.review_comment ? `Nhận xét: ${extraData.review_comment}` : `${currentUser.display_name} đã chuyển trạng thái module của bạn.`,
                     entity_type: "module", entity_id: moduleId,
                 }),
             });
@@ -498,6 +498,21 @@ export default function ProjectDetailPage({ params }) {
                             {isExpanded && (
                                 <div style={{ borderTop: "1px solid var(--border-primary)", padding: "16px 18px" }}>
                                     {mod.description && <p style={{ color: "var(--text-tertiary)", fontSize: 14, margin: "0 0 14px", lineHeight: 1.6 }}>{mod.description}</p>}
+
+                                    {/* Chairman review comment — visible when changes_requested */}
+                                    {mod.status === "changes_requested" && mod.review_comment && (
+                                        <div style={{
+                                            background: "#EF444412", border: "1px solid #EF444440", borderRadius: 10,
+                                            padding: "14px 18px", marginBottom: 14,
+                                        }}>
+                                            <div style={{ fontSize: 13, fontWeight: 700, color: "#EF4444", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                                                📝 Nhận xét từ Chủ tịch:
+                                            </div>
+                                            <div style={{ fontSize: 14, color: "var(--text-primary)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+                                                {mod.review_comment}
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* Action buttons */}
                                     <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
@@ -852,7 +867,7 @@ export default function ProjectDetailPage({ params }) {
                     <Input label="Nhận xét" value={form.comment || ""} onChange={e => setForm(f => ({ ...f, comment: e.target.value }))} placeholder="Nhận xét cho nhân sự..." />
                     <button onClick={async () => {
                         if (!form.decision) return;
-                        await updateModuleStatus(showReview, form.decision);
+                        await updateModuleStatus(showReview, form.decision, { review_comment: form.comment || "" });
                         setShowReview(null); setForm({});
                     }} disabled={!form.decision}
                         className="btn-primary" style={{ width: "100%", opacity: form.decision ? 1 : 0.5, marginTop: 8 }}>Gửi Review</button>
