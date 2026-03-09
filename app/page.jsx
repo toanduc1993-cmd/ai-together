@@ -1,37 +1,81 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useUser } from "@/lib/UserContext";
-import { FolderKanban, ArrowRight, TrendingUp, Clock, Activity, Flame } from "lucide-react";
+import { FolderKanban, ArrowRight, TrendingUp, Clock, Activity, CheckCircle2, AlertTriangle, Users, Package, Target, BarChart3 } from "lucide-react";
 import Link from "next/link";
 
 export default function DashboardPage() {
-    const { currentUser, isChairman, unreadCount } = useUser();
+    const { currentUser, unreadCount } = useUser();
     const [projects, setProjects] = useState([]);
+    const [allModules, setAllModules] = useState([]);
     const [activities, setActivities] = useState([]);
-    const [scores, setScores] = useState([]);
+    const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         if (!currentUser?.id) return;
-        Promise.all([
-            fetch("/api/projects").then(r => r.json()),
-            fetch("/api/activities").then(r => r.json()),
-            fetch("/api/scores?period=weekly").then(r => r.json()),
-        ]).then(([p, a, s]) => {
-            setProjects(Array.isArray(p) ? p : []);
-            setActivities(Array.isArray(a) ? a : []);
-            setScores(Array.isArray(s) ? s : []);
-            setLoading(false);
-        }).catch(() => setLoading(false));
-    }, [currentUser?.id]);
+        const load = async () => {
+            try {
+                const [pRes, aRes, uRes] = await Promise.all([
+                    fetch("/api/projects").then(r => r.json()),
+                    fetch("/api/activities").then(r => r.json()),
+                    fetch("/api/users").then(r => r.json()),
+                ]);
+                const prjs = Array.isArray(pRes) ? pRes : [];
+                setProjects(prjs);
+                setActivities(Array.isArray(aRes) ? aRes : []);
+                setUsers(Array.isArray(uRes) ? uRes : []);
 
-    useEffect(() => { fetch("/api/scores/calculate", { method: "POST" }).catch(() => { }); }, []);
+                // Load all modules across all projects
+                const mods = [];
+                for (const p of prjs) {
+                    const mRes = await fetch(`/api/modules?project_id=${p.id}`).then(r => r.json());
+                    const ms = Array.isArray(mRes) ? mRes : [];
+                    ms.forEach(m => { m._project = p; });
+                    mods.push(...ms);
+                }
+                setAllModules(mods);
+            } catch { }
+            setLoading(false);
+        };
+        load();
+    }, [currentUser?.id]);
 
     if (loading) return <Skeleton />;
 
-    const activeP = projects.filter(p => p.status === "active");
-    const todayAct = activities.filter(a => new Date(a.created_at).toDateString() === new Date().toDateString());
-    const myScore = scores.find(s => s.user_id === currentUser?.id);
+    // ===== COMPUTED METRICS =====
+    const now = new Date();
+    const totalModules = allModules.length;
+    const doneModules = allModules.filter(m => m.status === "done");
+    const inProgressModules = allModules.filter(m => m.status === "in_progress");
+    const inReviewModules = allModules.filter(m => m.status === "in_review");
+    const changesReqModules = allModules.filter(m => m.status === "changes_requested");
+    const overdueModules = allModules.filter(m => m.deadline && new Date(m.deadline) < now && m.status !== "done");
+    const completionRate = totalModules > 0 ? Math.round((doneModules.length / totalModules) * 100) : 0;
+    const onTimeModules = doneModules.filter(m => !m.deadline || new Date(m.updated_at || m.created_at) <= new Date(m.deadline));
+    const onTimeRate = doneModules.length > 0 ? Math.round((onTimeModules.length / doneModules.length) * 100) : 0;
+
+    // Per-user metrics
+    const userMetrics = users.map(u => {
+        const assigned = allModules.filter(m => m.assigned_to === u.id);
+        const done = assigned.filter(m => m.status === "done");
+        const inProg = assigned.filter(m => m.status === "in_progress");
+        const review = assigned.filter(m => m.status === "in_review");
+        const changesReq = assigned.filter(m => m.status === "changes_requested");
+        const overdue = assigned.filter(m => m.deadline && new Date(m.deadline) < now && m.status !== "done");
+        const rate = assigned.length > 0 ? Math.round((done.length / assigned.length) * 100) : 0;
+        return { user: u, total: assigned.length, done: done.length, inProgress: inProg.length, inReview: review.length, changesReq: changesReq.length, overdue: overdue.length, rate };
+    }).filter(u => u.total > 0).sort((a, b) => b.rate - a.rate || b.done - a.done);
+
+    // Status distribution for chart
+    const statusDist = [
+        { key: "planned", label: "Kế hoạch", count: allModules.filter(m => m.status === "planned").length, color: "#6366F1" },
+        { key: "in_progress", label: "Đang thực hiện", count: inProgressModules.length, color: "#F59E0B" },
+        { key: "in_review", label: "Chờ duyệt", count: inReviewModules.length, color: "#8B5CF6" },
+        { key: "changes_requested", label: "Yêu cầu sửa", count: changesReqModules.length, color: "#EF4444" },
+        { key: "done", label: "Hoàn thành", count: doneModules.length, color: "#10B981" },
+    ];
+    const maxCount = Math.max(...statusDist.map(s => s.count), 1);
 
     return (
         <div className="fade-in">
@@ -41,132 +85,178 @@ export default function DashboardPage() {
                     Xin chào, {currentUser?.display_name} 👋
                 </h1>
                 <p style={{ color: "var(--text-tertiary)", fontSize: 13, marginTop: 6 }}>
-                    {new Date().toLocaleDateString("vi-VN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                    {new Date().toLocaleDateString("vi-VN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} — Dashboard theo dõi hiệu suất team
                 </p>
             </div>
 
-            {/* Stats */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12, marginBottom: 24 }}>
-                <Stat icon={<FolderKanban size={18} />} label="Projects" value={projects.length} color="var(--accent)" />
-                <Stat icon={<Activity size={18} />} label="Active" value={activeP.length} color="var(--green)" />
-                <Stat icon={<TrendingUp size={18} />} label="Hôm nay" value={todayAct.length} color="var(--blue)" />
-                <Stat icon={<Clock size={18} />} label="Chưa đọc" value={unreadCount || 0} color="var(--red)" />
-                {myScore && <Stat icon="🏆" label="Composite" value={Number(myScore.composite || 0).toFixed(0)} color="var(--accent)" />}
-                {myScore && <Stat icon={<Flame size={18} />} label="Streak" value={`${myScore.streak || 0}d`} color="var(--amber)" />}
+            {/* ===== KEY METRICS ROW ===== */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 12, marginBottom: 24 }}>
+                <MetricCard icon={<Package size={20} />} label="Tổng Modules" value={totalModules} color="#6366F1" />
+                <MetricCard icon={<CheckCircle2 size={20} />} label="Hoàn thành" value={doneModules.length} color="#10B981" sub={`${completionRate}%`} />
+                <MetricCard icon={<Activity size={20} />} label="Đang thực hiện" value={inProgressModules.length} color="#F59E0B" />
+                <MetricCard icon={<Clock size={20} />} label="Chờ duyệt" value={inReviewModules.length} color="#8B5CF6" />
+                <MetricCard icon={<AlertTriangle size={20} />} label="Quá hạn" value={overdueModules.length} color="#EF4444" alert={overdueModules.length > 0} />
+                <MetricCard icon={<Target size={20} />} label="On-time Rate" value={`${onTimeRate}%`} color="#06B6D4" />
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 16 }} className="grid-2">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }} className="grid-2">
+                {/* ===== LEFT COLUMN ===== */}
                 <div>
-                    {/* Projects */}
-                    <Panel title="Projects" action={<Link href="/projects" style={{ color: "var(--accent)", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>Tất cả <ArrowRight size={13} /></Link>}>
-                        {projects.length === 0 ? <Empty text="Chưa có project" /> : projects.slice(0, 5).map(p => (
-                            <Link key={p.id} href={`/projects/${p.id}`} className="glass-card" style={{
-                                display: "flex", justifyContent: "space-between", alignItems: "center",
-                                padding: "12px 14px", marginBottom: 6, textDecoration: "none",
-                            }}>
-                                <div>
-                                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{p.title}</div>
-                                    <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 2 }}>Lead: {p.lead?.display_name || "—"}</div>
+                    {/* Team Performance Table */}
+                    <div style={{ background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-primary)", padding: "20px 22px", marginBottom: 16, boxShadow: "var(--shadow-xs)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
+                                <Users size={18} color="var(--accent)" /> Team Performance
+                            </h3>
+                        </div>
+                        {userMetrics.length === 0 ? (
+                            <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>Chưa có dữ liệu</div>
+                        ) : (
+                            <div>
+                                {/* Table header */}
+                                <div style={{ display: "grid", gridTemplateColumns: "1.5fr 0.6fr 0.6fr 0.6fr 0.6fr 0.6fr 1.2fr", gap: 4, padding: "8px 0", borderBottom: "1px solid var(--border-primary)", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                                    <span>Thành viên</span><span style={{ textAlign: "center" }}>Giao</span><span style={{ textAlign: "center" }}>Xong</span><span style={{ textAlign: "center" }}>Đang</span><span style={{ textAlign: "center" }}>Trễ</span><span style={{ textAlign: "center" }}>Sửa</span><span>Tiến độ</span>
                                 </div>
-                                <StatusBadge status={p.status} />
-                            </Link>
-                        ))}
-                    </Panel>
-
-                    {currentUser?.role === "developer" && myScore && (
-                        <Panel title="Điểm cá nhân">
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                                <ScoreBar label="Tempo" value={myScore.tempo || 50} />
-                                <ScoreBar label="Task" value={myScore.task_completion || 0} />
-                                <ScoreBar label="Collab" value={myScore.collaboration || 0} />
-                                <ScoreBar label="AI" value={myScore.ai_adoption || 0} />
-                            </div>
-                        </Panel>
-                    )}
-                </div>
-
-                <div>
-                    <Panel title="Leaderboard" action={<Link href="/leaderboard" style={{ color: "var(--amber)", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>Chi tiết <ArrowRight size={13} /></Link>}>
-                        {scores.length === 0 ? <Empty text="Chưa có dữ liệu" /> : scores.slice(0, 5).map((s, i) => (
-                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: i < 4 ? "1px solid var(--border-primary)" : "none" }}>
-                                <span style={{ width: 22, textAlign: "center", fontSize: 13, fontWeight: 700, color: i < 3 ? "var(--amber)" : "var(--text-muted)" }}>
-                                    {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}
-                                </span>
-                                <span style={{ fontSize: 18 }}>{s.user?.avatar}</span>
-                                <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>{s.user?.display_name}</span>
-                                <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>{Number(s.composite).toFixed(0)}</span>
-                            </div>
-                        ))}
-                    </Panel>
-
-                    <Panel title="Hoạt động">
-                        {activities.length === 0 ? <Empty text="Chưa có hoạt động" /> : activities.slice(0, 6).map(a => (
-                            <div key={a.id} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--border-primary)" }}>
-                                <span style={{ fontSize: 18, flexShrink: 0, lineHeight: 1 }}>{a.user?.avatar || "🔵"}</span>
-                                <div>
-                                    <div style={{ fontSize: 12, color: "var(--text-primary)", lineHeight: 1.4 }}>
-                                        <strong>{a.user?.display_name}</strong> <span style={{ color: "var(--text-tertiary)" }}>{a.detail || a.action_type}</span>
+                                {userMetrics.map((um, i) => (
+                                    <div key={i} style={{ display: "grid", gridTemplateColumns: "1.5fr 0.6fr 0.6fr 0.6fr 0.6fr 0.6fr 1.2fr", gap: 4, padding: "10px 0", borderBottom: i < userMetrics.length - 1 ? "1px solid var(--border-primary)" : "none", alignItems: "center", fontSize: 13 }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                            <span style={{ fontSize: 18 }}>{um.user.avatar || "👤"}</span>
+                                            <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{um.user.display_name}</span>
+                                        </div>
+                                        <span style={{ textAlign: "center", fontWeight: 600 }}>{um.total}</span>
+                                        <span style={{ textAlign: "center", fontWeight: 700, color: "var(--green)" }}>{um.done}</span>
+                                        <span style={{ textAlign: "center", fontWeight: 600, color: "#F59E0B" }}>{um.inProgress}</span>
+                                        <span style={{ textAlign: "center", fontWeight: 700, color: um.overdue > 0 ? "#EF4444" : "var(--text-muted)" }}>{um.overdue}</span>
+                                        <span style={{ textAlign: "center", fontWeight: 600, color: um.changesReq > 0 ? "#EF4444" : "var(--text-muted)" }}>{um.changesReq}</span>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                            <div style={{ flex: 1, height: 8, background: "var(--bg-tertiary)", borderRadius: 4, overflow: "hidden" }}>
+                                                <div style={{ height: "100%", width: `${um.rate}%`, background: um.rate >= 80 ? "#10B981" : um.rate >= 50 ? "#F59E0B" : "#EF4444", borderRadius: 4, transition: "width 0.6s" }} />
+                                            </div>
+                                            <span style={{ fontSize: 12, fontWeight: 700, color: um.rate >= 80 ? "#10B981" : um.rate >= 50 ? "#F59E0B" : "#EF4444", minWidth: 32 }}>{um.rate}%</span>
+                                        </div>
                                     </div>
-                                    <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 3 }}>{timeAgo(a.created_at)}</div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Project Progress */}
+                    <div style={{ background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-primary)", padding: "20px 22px", marginBottom: 16, boxShadow: "var(--shadow-xs)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
+                                <FolderKanban size={18} color="var(--green)" /> Tiến độ dự án
+                            </h3>
+                            <Link href="/projects" style={{ color: "var(--accent)", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 4, textDecoration: "none" }}>Xem tất cả <ArrowRight size={13} /></Link>
+                        </div>
+                        {projects.map(p => {
+                            const pMods = allModules.filter(m => m._project?.id === p.id);
+                            const pDone = pMods.filter(m => m.status === "done").length;
+                            const pPct = pMods.length > 0 ? Math.round((pDone / pMods.length) * 100) : 0;
+                            return (
+                                <Link key={p.id} href={`/projects/${p.id}`} style={{ textDecoration: "none", display: "block", padding: "12px 0", borderBottom: "1px solid var(--border-primary)" }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                                        <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{p.title}</span>
+                                        <span style={{ fontSize: 13, fontWeight: 700, color: pPct === 100 ? "#10B981" : "var(--text-tertiary)" }}>{pPct}%</span>
+                                    </div>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        <div style={{ flex: 1, height: 8, background: "var(--bg-tertiary)", borderRadius: 4, overflow: "hidden" }}>
+                                            <div style={{ height: "100%", width: `${pPct}%`, background: pPct === 100 ? "#10B981" : "var(--accent)", borderRadius: 4, transition: "width 0.6s" }} />
+                                        </div>
+                                        <span style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap" }}>{pDone}/{pMods.length} modules</span>
+                                    </div>
+                                </Link>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* ===== RIGHT COLUMN ===== */}
+                <div>
+                    {/* Module Status Distribution */}
+                    <div style={{ background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-primary)", padding: "20px 22px", marginBottom: 16, boxShadow: "var(--shadow-xs)" }}>
+                        <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
+                            <BarChart3 size={18} color="#8B5CF6" /> Phân bổ trạng thái Module
+                        </h3>
+                        {statusDist.map(s => (
+                            <div key={s.key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
+                                <div style={{ width: 12, height: 12, borderRadius: 3, background: s.color, flexShrink: 0 }} />
+                                <span style={{ fontSize: 13, color: "var(--text-secondary)", flex: 1 }}>{s.label}</span>
+                                <div style={{ width: 120, height: 8, background: "var(--bg-tertiary)", borderRadius: 4, overflow: "hidden" }}>
+                                    <div style={{ height: "100%", width: `${(s.count / maxCount) * 100}%`, background: s.color, borderRadius: 4, transition: "width 0.6s" }} />
+                                </div>
+                                <span style={{ fontSize: 14, fontWeight: 700, color: s.color, minWidth: 24, textAlign: "right" }}>{s.count}</span>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Overdue Alert */}
+                    {overdueModules.length > 0 && (
+                        <div style={{ background: "#EF444410", borderRadius: "var(--radius-lg)", border: "1px solid #EF444430", padding: "18px 22px", marginBottom: 16 }}>
+                            <h3 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 700, color: "#EF4444", display: "flex", alignItems: "center", gap: 8 }}>
+                                <AlertTriangle size={18} /> ⚠️ Modules quá hạn ({overdueModules.length})
+                            </h3>
+                            {overdueModules.slice(0, 5).map(m => (
+                                <Link key={m.id} href={`/projects/${m._project?.id}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #EF444418", textDecoration: "none" }}>
+                                    <div>
+                                        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{m.title}</div>
+                                        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{m._project?.title} — {m.assignee?.display_name || "—"}</div>
+                                    </div>
+                                    <span style={{ fontSize: 12, fontWeight: 700, color: "#EF4444" }}>📅 {new Date(m.deadline).toLocaleDateString("vi-VN")}</span>
+                                </Link>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Recent Activity */}
+                    <div style={{ background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-primary)", padding: "20px 22px", boxShadow: "var(--shadow-xs)" }}>
+                        <h3 style={{ margin: "0 0 14px", fontSize: 16, fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
+                            <Activity size={18} color="var(--accent)" /> Hoạt động gần đây
+                        </h3>
+                        {activities.length === 0 ? (
+                            <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>Chưa có hoạt động</div>
+                        ) : activities.slice(0, 8).map(a => (
+                            <div key={a.id} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--border-primary)" }}>
+                                <span style={{ fontSize: 16, flexShrink: 0, lineHeight: 1.4 }}>{a.user?.avatar || "🔵"}</span>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.4 }}>
+                                        <strong>{a.user?.display_name}</strong>{" "}
+                                        <span style={{ color: "var(--text-tertiary)" }}>{a.detail || a.action_type}</span>
+                                    </div>
+                                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{timeAgo(a.created_at)}</div>
                                 </div>
                             </div>
                         ))}
-                    </Panel>
+                    </div>
                 </div>
             </div>
         </div>
     );
 }
 
-function Stat({ icon, label, value, color }) {
+function MetricCard({ icon, label, value, color, sub, alert }) {
     return (
-        <div className="glass-card" style={{ padding: "16px 18px", display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: `${color}12`, color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
-                {typeof icon === "string" ? icon : icon}
-            </div>
+        <div className="glass-card" style={{
+            padding: "18px 20px", display: "flex", alignItems: "center", gap: 14,
+            borderColor: alert ? "#EF444440" : undefined,
+            background: alert ? "#EF444408" : undefined,
+        }}>
+            <div style={{
+                width: 44, height: 44, borderRadius: 12,
+                background: `${color}15`, color,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                flexShrink: 0,
+            }}>{icon}</div>
             <div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: "var(--text-primary)", lineHeight: 1 }}>{value}</div>
-                <div style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 500, marginTop: 2 }}>{label}</div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                    <span style={{ fontSize: 24, fontWeight: 800, color: "var(--text-primary)", lineHeight: 1 }}>{value}</span>
+                    {sub && <span style={{ fontSize: 13, fontWeight: 600, color }}>{sub}</span>}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--text-tertiary)", fontWeight: 500, marginTop: 3 }}>{label}</div>
             </div>
         </div>
     );
 }
 
-function Panel({ title, action, children }) {
-    return (
-        <div style={{ background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-primary)", padding: "18px 20px", marginBottom: 14, boxShadow: "var(--shadow-xs)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>📋 {title}</h3>
-                {action}
-            </div>
-            {children}
-        </div>
-    );
-}
-
-function StatusBadge({ status }) {
-    const map = { active: { bg: "var(--green-bg)", color: "var(--green)", label: "Active" }, completed: { bg: "var(--blue-bg)", color: "var(--blue)", label: "Done" }, planning: { bg: "var(--amber-bg)", color: "var(--amber)", label: "Planning" } };
-    const s = map[status] || map.planning;
-    return <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: s.bg, color: s.color }}>{s.label}</span>;
-}
-
-function ScoreBar({ label, value }) {
-    const v = Number(value || 0);
-    const c = v >= 70 ? "var(--green)" : v >= 50 ? "var(--blue)" : v >= 30 ? "var(--amber)" : "var(--text-muted)";
-    return (
-        <div style={{ background: "var(--bg-tertiary)", borderRadius: 10, padding: "10px 12px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                <span style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 500 }}>{label}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: c }}>{v}</span>
-            </div>
-            <div style={{ height: 5, background: "var(--bg-secondary)", borderRadius: 4, overflow: "hidden" }}>
-                <div style={{ height: "100%", width: `${v}%`, background: c, borderRadius: 4, transition: "width 0.6s cubic-bezier(0.16, 1, 0.3, 1)" }} />
-            </div>
-        </div>
-    );
-}
-
-function Empty({ text }) { return <div style={{ padding: "20px 0", textAlign: "center", color: "var(--text-muted)", fontSize: 12 }}>{text}</div>; }
 function Skeleton() {
     return <div style={{ padding: 40, textAlign: "center" }}><div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--bg-tertiary)", margin: "0 auto 12px", animation: "pulse-soft 1.5s infinite" }} /><div style={{ color: "var(--text-muted)", fontSize: 13 }}>Đang tải...</div></div>;
 }

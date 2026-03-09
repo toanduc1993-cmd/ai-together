@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Together — Tài liệu Hệ thống</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        
+        :root {
+            --bg: #0F172A;
+            --bg-card: #1E293B;
+            --bg-card-hover: #263548;
+            --accent: #6366F1;
+            --accent-light: #818CF8;
+            --green: #10B981;
+            --yellow: #F59E0B;
+            --red: #EF4444;
+            --purple: #8B5CF6;
+            --cyan: #06B6D4;
+            --text: #F1F5F9;
+            --text-muted: #94A3B8;
+            --text-dim: #64748B;
+            --border: #334155;
+            --gradient: linear-gradient(135deg, #6366F1, #8B5CF6, #06B6D4);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            min-height: 100vh;
+        }
+        
+        .hero {
+            background: linear-gradient(135deg, #1a1145 0%, #0F172A 50%, #0c1f2e 100%);
+            padding: 80px 40px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(ellipse at 30% 50%, rgba(99,102,241,0.15) 0%, transparent 50%),
+                        radial-gradient(ellipse at 70% 50%, rgba(6,182,212,0.1) 0%, transparent 50%);
+            animation: pulse 8s ease-in-out infinite alternate;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.05); }
+        }
+        .hero-content { position: relative; z-index: 1; max-width: 800px; margin: 0 auto; }
+        .hero-icon {
+            width: 80px; height: 80px; border-radius: 24px;
+            background: var(--gradient); display: inline-flex;
+            align-items: center; justify-content: center;
+            font-size: 36px; margin-bottom: 24px;
+            box-shadow: 0 0 60px rgba(99,102,241,0.4);
+        }
+        .hero h1 {
+            font-size: 48px; font-weight: 900; letter-spacing: -1px;
+            background: var(--gradient); -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent; margin-bottom: 16px;
+        }
+        .hero p { font-size: 18px; color: var(--text-muted); max-width: 600px; margin: 0 auto; }
+        .hero .meta {
+            margin-top: 24px; display: flex; gap: 24px; justify-content: center;
+            flex-wrap: wrap; font-size: 14px; color: var(--text-dim);
+        }
+        .hero .meta span { display: flex; align-items: center; gap: 6px; }
+        
+        .container { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+        
+        .section {
+            margin-bottom: 48px;
+        }
+        .section-title {
+            font-size: 28px; font-weight: 800; margin-bottom: 8px;
+            display: flex; align-items: center; gap: 12px; letter-spacing: -0.5px;
+        }
+        .section-subtitle {
+            color: var(--text-muted); font-size: 15px; margin-bottom: 24px;
+        }
+        
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 16px;
+            transition: all 0.2s;
+        }
+        .card:hover { border-color: var(--accent); background: var(--bg-card-hover); }
+        .card h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+        .card p { color: var(--text-muted); font-size: 14px; }
+        
+        /* Workflow */
+        .workflow-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0;
+            position: relative;
+        }
+        .workflow-step {
+            display: flex;
+            gap: 20px;
+            padding: 24px 0;
+            position: relative;
+        }
+        .workflow-step:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            left: 27px;
+            top: 72px;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(to bottom, var(--accent), var(--border));
+        }
+        .step-number {
+            width: 56px; height: 56px; border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px; font-weight: 800; flex-shrink: 0;
+            position: relative; z-index: 1;
+        }
+        .step-content { flex: 1; }
+        .step-content h4 {
+            font-size: 17px; font-weight: 700; margin-bottom: 6px;
+        }
+        .step-content p { font-size: 14px; color: var(--text-muted); margin-bottom: 8px; }
+        .step-badge {
+            display: inline-block; font-size: 12px; font-weight: 600;
+            padding: 3px 12px; border-radius: 8px; margin-right: 6px;
+        }
+        
+        /* Status table */
+        table {
+            width: 100%; border-collapse: separate; border-spacing: 0;
+            background: var(--bg-card); border-radius: 16px;
+            overflow: hidden; border: 1px solid var(--border);
+        }
+        th {
+            background: #253348; text-align: left; padding: 14px 18px;
+            font-size: 13px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.5px; color: var(--text-muted);
+        }
+        td {
+            padding: 14px 18px; border-top: 1px solid var(--border);
+            font-size: 14px;
+        }
+        tr:hover td { background: var(--bg-card-hover); }
+        
+        .status-dot {
+            display: inline-block; width: 10px; height: 10px;
+            border-radius: 50%; margin-right: 8px;
+        }
+        
+        /* Role cards */
+        .role-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+        .role-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 16px; padding: 28px; transition: all 0.2s;
+        }
+        .role-card:hover { border-color: var(--accent); }
+        .role-icon {
+            width: 52px; height: 52px; border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px; margin-bottom: 16px;
+        }
+        .role-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+        .role-card ul {
+            list-style: none; padding: 0;
+        }
+        .role-card li {
+            font-size: 14px; color: var(--text-muted); padding: 4px 0;
+            display: flex; align-items: flex-start; gap: 8px;
+        }
+        .role-card li::before { content: '✓'; color: var(--green); font-weight: 700; flex-shrink: 0; }
+        
+        /* Tech stack */
+        .tech-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+        .tech-item {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 18px 20px; text-align: center;
+            transition: all 0.2s;
+        }
+        .tech-item:hover { border-color: var(--accent); transform: translateY(-2px); }
+        .tech-item .emoji { font-size: 28px; margin-bottom: 8px; }
+        .tech-item .name { font-size: 15px; font-weight: 700; }
+        .tech-item .desc { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+        
+        /* API table */
+        .api-method {
+            display: inline-block; font-size: 11px; font-weight: 700;
+            padding: 2px 8px; border-radius: 4px; letter-spacing: 0.5px;
+        }
+        .api-get { background: #10B98120; color: #10B981; }
+        .api-post { background: #3B82F620; color: #3B82F6; }
+        .api-put { background: #F59E0B20; color: #F59E0B; }
+        .api-delete { background: #EF444420; color: #EF4444; }
+        
+        /* Diagram */
+        .diagram {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 16px; padding: 32px; overflow-x: auto;
+        }
+        .flow-row {
+            display: flex; align-items: center; justify-content: center;
+            gap: 8px; margin: 12px 0; flex-wrap: wrap;
+        }
+        .flow-box {
+            padding: 10px 18px; border-radius: 10px; font-size: 13px;
+            font-weight: 600; white-space: nowrap; text-align: center;
+            min-width: 120px;
+        }
+        .flow-arrow { font-size: 20px; color: var(--text-dim); }
+        
+        /* Footer */
+        .footer {
+            text-align: center; padding: 40px 24px;
+            border-top: 1px solid var(--border);
+            color: var(--text-dim); font-size: 13px;
+        }
+        
+        @media (max-width: 768px) {
+            .hero { padding: 48px 20px; }
+            .hero h1 { font-size: 32px; }
+            .role-grid { grid-template-columns: 1fr; }
+            .tech-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+    <div class="hero-content">
+        <div class="hero-icon">⚡</div>
+        <h1>AI Together</h1>
+        <p>Nền tảng quản lý dự án & module phát triển phần mềm cho đội ngũ AI — với workflow phân quyền theo vai trò.</p>
+        <div class="meta">
+            <span>🏢 Libe Tech</span>
+            <span>📋 Version 2.0</span>
+            <span>📅 Cập nhật: 09/03/2026</span>
+            <span>🚀 Production: Vercel</span>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+
+    <!-- ===== 1. SYSTEM OVERVIEW ===== -->
+    <div class="section">
+        <h2 class="section-title">🏗️ Tổng quan Hệ thống</h2>
+        <p class="section-subtitle">AI Together là nền tảng quản lý dự án phát triển phần mềm, tập trung vào quản lý module với workflow rõ ràng giữa Chủ tịch (Chairman) và Nhân sự (Assigned User).</p>
+        
+        <div class="tech-grid">
+            <div class="tech-item"><div class="emoji">⚛️</div><div class="name">Next.js 14</div><div class="desc">App Router, Server Components</div></div>
+            <div class="tech-item"><div class="emoji">🗄️</div><div class="name">Supabase</div><div class="desc">PostgreSQL + Storage + Auth</div></div>
+            <div class="tech-item"><div class="emoji">🎨</div><div class="name">Vanilla CSS</div><div class="desc">Custom Design System</div></div>
+            <div class="tech-item"><div class="emoji">☁️</div><div class="name">Vercel</div><div class="desc">Production Deployment</div></div>
+            <div class="tech-item"><div class="emoji">🔔</div><div class="name">Notifications</div><div class="desc">Real-time thông báo</div></div>
+            <div class="tech-item"><div class="emoji">💬</div><div class="name">Chat Widget</div><div class="desc">Tin nhắn nội bộ</div></div>
+        </div>
+    </div>
+
+    <!-- ===== 2. ROLES ===== -->
+    <div class="section">
+        <h2 class="section-title">👥 Phân quyền Vai trò</h2>
+        <p class="section-subtitle">Hai vai trò chính trong hệ thống, phân quyền theo từng project.</p>
+        
+        <div class="role-grid">
+            <div class="role-card">
+                <div class="role-icon" style="background: #6366F118;">🏛️</div>
+                <h3 style="color: var(--accent);">Chủ tịch (Chairman)</h3>
+                <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 14px;">Người tạo và quản lý project. Xác định bởi <code style="background:#334155;padding:2px 6px;border-radius:4px;">project.chairman_id</code></p>
+                <ul>
+                    <li>Tạo project, nhập mục tiêu dự án</li>
+                    <li>Upload tài liệu dự án (Mô tả nghiệp vụ, Source code, Kiến trúc, Rule chung)</li>
+                    <li>Tạo modules với deadline</li>
+                    <li>Tạo checklist cho từng module (mặc định: Change Log, TASK_REGISTRY, Source Code)</li>
+                    <li>Assign nhân sự cho module</li>
+                    <li>Đính kèm tài liệu nghiệp vụ theo module</li>
+                    <li>Click "📨 Giao việc" để gửi notification đến nhân sự</li>
+                    <li>Review module khi nhân sự báo cáo hoàn thành</li>
+                    <li>Phê duyệt hoặc Yêu cầu chỉnh sửa (có comment)</li>
+                </ul>
+            </div>
+            <div class="role-card">
+                <div class="role-icon" style="background: #10B98118;">👤</div>
+                <h3 style="color: var(--green);">Nhân sự (Assigned User)</h3>
+                <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 14px;">Người được giao module. Xác định bởi <code style="background:#334155;padding:2px 6px;border-radius:4px;">module.assigned_to</code></p>
+                <ul>
+                    <li>Nhận thông báo khi được giao module</li>
+                    <li>Xem "Công việc của tôi" với badge đỏ đếm số module</li>
+                    <li>Xem tài liệu dự án & tài liệu module</li>
+                    <li>Click "▶ Bắt đầu" để chuyển module sang In Progress</li>
+                    <li>Upload tài liệu cho từng checklist item</li>
+                    <li>Nhập comment (link demo, hướng dẫn kiểm thử)</li>
+                    <li>Click "📋 Báo cáo hoàn thành" khi upload đủ checklist</li>
+                    <li>Nhận comment từ Chủ tịch khi bị yêu cầu chỉnh sửa</li>
+                    <li>Sửa lại và báo cáo hoàn thành lần nữa</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 3. WORKFLOW ===== -->
+    <div class="section">
+        <h2 class="section-title">🔄 Workflow 7 bước</h2>
+        <p class="section-subtitle">Quy trình làm việc hoàn chỉnh từ tạo project đến phê duyệt.</p>
+        
+        <div class="workflow-grid">
+            <div class="workflow-step">
+                <div class="step-number" style="background: #6366F118; color: var(--accent);">1</div>
+                <div class="step-content">
+                    <h4>🏛️ Tạo Project</h4>
+                    <p>Chủ tịch tạo project mới với tên, mô tả mục tiêu, deadline. Sau đó upload tài liệu dự án (Mô tả nghiệp vụ, Source code, Kiến trúc, Rule chung).</p>
+                    <span class="step-badge" style="background: #6366F118; color: var(--accent);">Actor: Chủ tịch</span>
+                </div>
+            </div>
+            <div class="workflow-step">
+                <div class="step-number" style="background: #8B5CF618; color: var(--purple);">2</div>
+                <div class="step-content">
+                    <h4>📦 Tạo Module & Checklist</h4>
+                    <p>Chủ tịch tạo các module con trong project, chọn deadline cho từng module. Hệ thống tự động tạo 3 checklist mặc định: <strong>Change Log</strong>, <strong>TASK_REGISTRY</strong>, <strong>Source Code</strong>. Chủ tịch có thể thêm checklist khác.</p>
+                    <span class="step-badge" style="background: #8B5CF618; color: var(--purple);">Actor: Chủ tịch</span>
+                    <span class="step-badge" style="background: #10B98118; color: var(--green);">Auto: 3 checklist mặc định</span>
+                </div>
+            </div>
+            <div class="workflow-step">
+                <div class="step-number" style="background: #06B6D418; color: var(--cyan);">3</div>
+                <div class="step-content">
+                    <h4>👤 Assign & Đính kèm tài liệu</h4>
+                    <p>Chủ tịch assign nhân sự cho module, đính kèm tài liệu nghiệp vụ theo module. Sau đó click <strong>"📨 Giao việc"</strong> để gửi notification cho nhân sự.</p>
+                    <span class="step-badge" style="background: #06B6D418; color: var(--cyan);">Actor: Chủ tịch</span>
+                    <span class="step-badge" style="background: #F59E0B18; color: var(--yellow);">Trigger: Notification</span>
+                </div>
+            </div>
+            <div class="workflow-step">
+                <div class="step-number" style="background: #F59E0B18; color: var(--yellow);">4</div>
+                <div class="step-content">
+                    <h4>🔔 Nhận thông báo</h4>
+                    <p>Nhân sự nhận notification qua icon chuông 🔔 và badge đỏ trên tab <strong>"Công việc của tôi"</strong>. Module hiển thị trong danh sách công việc với trạng thái "Kế hoạch".</p>
+                    <span class="step-badge" style="background: #F59E0B18; color: var(--yellow);">Actor: Nhân sự</span>
+                    <span class="step-badge" style="background: #EF444418; color: var(--red);">Badge: Số module</span>
+                </div>
+            </div>
+            <div class="workflow-step">
+                <div class="step-number" style="background: #10B98118; color: var(--green);">5</div>
+                <div class="step-content">
+                    <h4>▶ Bắt đầu thực hiện</h4>
+                    <p>Nhân sự vào module, xem tài liệu dự án + tài liệu module, click <strong>"▶ Bắt đầu"</strong>. Module chuyển trạng thái → <code style="background:#334155;padding:2px 6px;border-radius:4px;">in_progress</code>.</p>
+                    <span class="step-badge" style="background: #10B98118; color: var(--green);">Actor: Nhân sự</span>
+                    <span class="step-badge" style="background: #F59E0B18; color: var(--yellow);">Status: planned → in_progress</span>
+                </div>
+            </div>
+            <div class="workflow-step">
+                <div class="step-number" style="background: #3B82F618; color: #3B82F6;">6</div>
+                <div class="step-content">
+                    <h4>📋 Báo cáo hoàn thành</h4>
+                    <p>Nhân sự upload tài liệu cho <strong>tất cả checklist items</strong>, nhập comment/link demo. Khi tất cả checklist đã nộp, click <strong>"📋 Báo cáo hoàn thành"</strong>. Module chuyển → <code style="background:#334155;padding:2px 6px;border-radius:4px;">in_review</code> và gửi notification cho Chủ tịch.</p>
+                    <span class="step-badge" style="background: #3B82F618; color: #3B82F6;">Actor: Nhân sự</span>
+                    <span class="step-badge" style="background: #8B5CF618; color: var(--purple);">Status: in_progress → in_review</span>
+                </div>
+            </div>
+            <div class="workflow-step">
+                <div class="step-number" style="background: #10B98118; color: var(--green);">7</div>
+                <div class="step-content">
+                    <h4>👀 Review & Phê duyệt</h4>
+                    <p>Chủ tịch xem module trong "Công việc của tôi" (badge "👀 Cần duyệt"), vào project → click <strong>"👀 Xem & Duyệt"</strong>. Có 2 lựa chọn:</p>
+                    <div style="margin-top: 10px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                            <span class="step-badge" style="background: #10B98118; color: var(--green);">✅ Phê duyệt</span>
+                            <span style="font-size:13px;color:var(--text-muted);">Module → <code style="background:#334155;padding:2px 6px;border-radius:4px;">done</code></span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span class="step-badge" style="background: #EF444418; color: var(--red);">🔄 Yêu cầu sửa</span>
+                            <span style="font-size:13px;color:var(--text-muted);">Module → <code style="background:#334155;padding:2px 6px;border-radius:4px;">changes_requested</code> + comment hiển thị cho nhân sự</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 4. STATUS FLOW ===== -->
+    <div class="section">
+        <h2 class="section-title">📊 Trạng thái Module</h2>
+        <p class="section-subtitle">Các trạng thái và luồng chuyển đổi của module.</p>
+        
+        <div class="diagram" style="margin-bottom: 24px;">
+            <div style="text-align:center;margin-bottom:16px;font-size:14px;font-weight:600;color:var(--text-muted);">Status Flow Diagram</div>
+            <div class="flow-row">
+                <div class="flow-box" style="background:#6366F118;color:var(--accent);border:1px solid #6366F140;">📋 Planned</div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-box" style="background:#F59E0B18;color:var(--yellow);border:1px solid #F59E0B40;">🔨 In Progress</div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-box" style="background:#8B5CF618;color:var(--purple);border:1px solid #8B5CF640;">👀 In Review</div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-box" style="background:#10B98118;color:var(--green);border:1px solid #10B98140;">🎉 Done</div>
+            </div>
+            <div class="flow-row">
+                <div style="width:360px;"></div>
+                <div class="flow-arrow">↗</div>
+                <div class="flow-box" style="background:#EF444418;color:var(--red);border:1px solid #EF444440;">🔄 Changes Requested</div>
+                <div class="flow-arrow" style="font-size:14px;">↩ Quay lại nhân sự</div>
+            </div>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Trạng thái</th>
+                    <th>Key</th>
+                    <th>Người thực hiện</th>
+                    <th>Hành động tiếp theo</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="status-dot" style="background:var(--accent);"></span>Kế hoạch</td>
+                    <td><code style="background:#334155;padding:2px 8px;border-radius:4px;font-size:12px;">planned</code></td>
+                    <td>Chủ tịch tạo</td>
+                    <td>Nhân sự click "▶ Bắt đầu"</td>
+                </tr>
+                <tr>
+                    <td><span class="status-dot" style="background:var(--yellow);"></span>Đang thực hiện</td>
+                    <td><code style="background:#334155;padding:2px 8px;border-radius:4px;font-size:12px;">in_progress</code></td>
+                    <td>Nhân sự làm việc</td>
+                    <td>Upload tài liệu → "📋 Báo cáo hoàn thành"</td>
+                </tr>
+                <tr>
+                    <td><span class="status-dot" style="background:var(--purple);"></span>Chờ duyệt</td>
+                    <td><code style="background:#334155;padding:2px 8px;border-radius:4px;font-size:12px;">in_review</code></td>
+                    <td>Chờ Chủ tịch</td>
+                    <td>Chủ tịch "👀 Xem & Duyệt"</td>
+                </tr>
+                <tr>
+                    <td><span class="status-dot" style="background:var(--red);"></span>Yêu cầu sửa</td>
+                    <td><code style="background:#334155;padding:2px 8px;border-radius:4px;font-size:12px;">changes_requested</code></td>
+                    <td>Nhân sự sửa lại</td>
+                    <td>Sửa + Upload lại → "📋 Báo cáo hoàn thành"</td>
+                </tr>
+                <tr>
+                    <td><span class="status-dot" style="background:var(--green);"></span>Hoàn thành</td>
+                    <td><code style="background:#334155;padding:2px 8px;border-radius:4px;font-size:12px;">done</code></td>
+                    <td>Chủ tịch phê duyệt</td>
+                    <td>—</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ===== 5. CHECKLIST LOGIC ===== -->
+    <div class="section">
+        <h2 class="section-title">✅ Checklist Logic</h2>
+        <p class="section-subtitle">Cơ chế checklist — yêu cầu nộp tài liệu trước khi báo cáo hoàn thành.</p>
+        
+        <div class="card">
+            <h3>📋 Checklist mặc định</h3>
+            <p>Khi tạo module mới, hệ thống tự động tạo 3 checklist:</p>
+            <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
+                <span class="step-badge" style="background:#6366F118;color:var(--accent);">📝 Change Log</span>
+                <span class="step-badge" style="background:#F59E0B18;color:var(--yellow);">📋 TASK_REGISTRY</span>
+                <span class="step-badge" style="background:#10B98118;color:var(--green);">💻 Source Code</span>
+            </div>
+        </div>
+        <div class="card">
+            <h3>📤 Upload & Comment</h3>
+            <p>Nhân sự phải upload tài liệu cho mỗi checklist item. Mỗi item có ô <strong>"💬 Comment"</strong> để nhập link demo, hướng dẫn kiểm thử. Khi upload xong → checklist tự đánh dấu ✅.</p>
+        </div>
+        <div class="card">
+            <h3>⚠️ Điều kiện Báo cáo hoàn thành</h3>
+            <p>Nút <strong>"📋 Báo cáo hoàn thành"</strong> chỉ active khi <strong>tất cả</strong> checklist items đã nộp tài liệu. Nếu chưa đủ → hiển thị cảnh báo vàng: <em>"Cần nộp tài liệu tất cả checklist (x/y)"</em></p>
+        </div>
+    </div>
+
+    <!-- ===== 6. NOTIFICATIONS ===== -->
+    <div class="section">
+        <h2 class="section-title">🔔 Hệ thống Thông báo</h2>
+        <p class="section-subtitle">Notification tự động theo từng hành động trong workflow.</p>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Trigger</th>
+                    <th>Người nhận</th>
+                    <th>Nội dung</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Tạo module + assign</td>
+                    <td>Nhân sự</td>
+                    <td>Bạn được giao module "X" trong dự án Y</td>
+                </tr>
+                <tr>
+                    <td>Click "📨 Giao việc"</td>
+                    <td>Nhân sự</td>
+                    <td>Bạn được giao module "X". Vui lòng vào "Công việc của tôi"</td>
+                </tr>
+                <tr>
+                    <td>"📋 Báo cáo hoàn thành"</td>
+                    <td>Chủ tịch</td>
+                    <td>Module "X" cần review — nhân sự đã hoàn thành</td>
+                </tr>
+                <tr>
+                    <td>Phê duyệt / Yêu cầu sửa</td>
+                    <td>Nhân sự</td>
+                    <td>Module "X" → Phê duyệt / Yêu cầu sửa (kèm comment)</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ===== 7. PAGES ===== -->
+    <div class="section">
+        <h2 class="section-title">📱 Các trang chính</h2>
+        <p class="section-subtitle">Cấu trúc các trang trong ứng dụng.</p>
+        
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;">
+            <div class="card">
+                <h3>🏠 Dashboard</h3>
+                <p>Tổng quan: thống kê, hoạt động gần đây, biểu đồ.</p>
+            </div>
+            <div class="card">
+                <h3>📋 Công việc của tôi</h3>
+                <p>Module được giao + Module cần duyệt (cho Chairman). Badge đỏ, filter tabs.</p>
+            </div>
+            <div class="card">
+                <h3>📁 Projects</h3>
+                <p>Danh sách projects. Click vào → chi tiết project với modules.</p>
+            </div>
+            <div class="card">
+                <h3>📁 Project Detail</h3>
+                <p>Mục tiêu dự án, tài liệu dự án, modules list, checklist, file upload.</p>
+            </div>
+            <div class="card">
+                <h3>🏆 Leaderboard</h3>
+                <p>Bảng xếp hạng thành viên theo điểm đóng góp.</p>
+            </div>
+            <div class="card">
+                <h3>📊 Analytics</h3>
+                <p>Biểu đồ phân tích: tiến độ, phân bổ task, performance.</p>
+            </div>
+            <div class="card">
+                <h3>👥 Team</h3>
+                <p>Quản lý thành viên nhóm.</p>
+            </div>
+            <div class="card">
+                <h3>💬 Chat (Plugin)</h3>
+                <p>Widget chat dạng floating icon ở góc phải — tin nhắn nội bộ.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 8. API ENDPOINTS ===== -->
+    <div class="section">
+        <h2 class="section-title">🔌 API Endpoints</h2>
+        <p class="section-subtitle">RESTful API routes cho ứng dụng.</p>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Method</th>
+                    <th>Endpoint</th>
+                    <th>Mô tả</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><span class="api-method api-get">GET</span> <span class="api-method api-post">POST</span> <span class="api-method api-put">PUT</span></td><td>/api/projects</td><td>CRUD projects</td></tr>
+                <tr><td><span class="api-method api-get">GET</span> <span class="api-method api-post">POST</span> <span class="api-method api-put">PUT</span></td><td>/api/modules</td><td>CRUD modules (có review_comment)</td></tr>
+                <tr><td><span class="api-method api-get">GET</span> <span class="api-method api-post">POST</span> <span class="api-method api-put">PUT</span> <span class="api-method api-delete">DEL</span></td><td>/api/checklist</td><td>CRUD checklist items</td></tr>
+                <tr><td><span class="api-method api-get">GET</span> <span class="api-method api-post">POST</span> <span class="api-method api-delete">DEL</span></td><td>/api/files</td><td>Upload/download files (project_id hoặc module_id)</td></tr>
+                <tr><td><span class="api-method api-get">GET</span> <span class="api-method api-post">POST</span></td><td>/api/notifications</td><td>Thông báo cho users</td></tr>
+                <tr><td><span class="api-method api-get">GET</span> <span class="api-method api-post">POST</span></td><td>/api/reviews</td><td>Submit review quyết định</td></tr>
+                <tr><td><span class="api-method api-get">GET</span> <span class="api-method api-post">POST</span></td><td>/api/users</td><td>Quản lý users</td></tr>
+                <tr><td><span class="api-method api-get">GET</span></td><td>/api/activities</td><td>Activity log</td></tr>
+                <tr><td><span class="api-method api-get">GET</span> <span class="api-method api-post">POST</span></td><td>/api/scores</td><td>Điểm & leaderboard</td></tr>
+                <tr><td><span class="api-method api-get">GET</span> <span class="api-method api-post">POST</span></td><td>/api/chat/rooms</td><td>Chat rooms</td></tr>
+                <tr><td><span class="api-method api-get">GET</span> <span class="api-method api-post">POST</span></td><td>/api/chat/messages</td><td>Chat messages</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ===== 9. DATABASE SCHEMA ===== -->
+    <div class="section">
+        <h2 class="section-title">🗄️ Database Schema</h2>
+        <p class="section-subtitle">Các bảng chính trong Supabase PostgreSQL.</p>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Bảng</th>
+                    <th>Columns chính</th>
+                    <th>Mô tả</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><code style="background:#334155;padding:2px 8px;border-radius:4px;">users</code></td><td>id, display_name, email, role, avatar_url</td><td>Thành viên hệ thống</td></tr>
+                <tr><td><code style="background:#334155;padding:2px 8px;border-radius:4px;">projects</code></td><td>id, title, description, chairman_id, lead_id, deadline, status</td><td>Dự án</td></tr>
+                <tr><td><code style="background:#334155;padding:2px 8px;border-radius:4px;">modules</code></td><td>id, project_id, title, assigned_to, status, priority, deadline, progress_pct, review_comment</td><td>Module công việc</td></tr>
+                <tr><td><code style="background:#334155;padding:2px 8px;border-radius:4px;">checklist_items</code></td><td>id, module_id, title, description, status, completed_at</td><td>Checklist yêu cầu nộp tài liệu</td></tr>
+                <tr><td><code style="background:#334155;padding:2px 8px;border-radius:4px;">deliverable_files</code></td><td>id, filename, file_url, file_size, file_type, module_id, project_id, checklist_item_id, uploaded_by</td><td>Files đính kèm</td></tr>
+                <tr><td><code style="background:#334155;padding:2px 8px;border-radius:4px;">notifications</code></td><td>id, user_id, type, title, body, is_read, entity_type, entity_id</td><td>Thông báo</td></tr>
+                <tr><td><code style="background:#334155;padding:2px 8px;border-radius:4px;">activities</code></td><td>id, user_id, action_type, entity_type, entity_id, detail, project_id</td><td>Activity log</td></tr>
+                <tr><td><code style="background:#334155;padding:2px 8px;border-radius:4px;">reviews</code></td><td>id, deliverable_id, reviewer_id, decision, comment</td><td>Kết quả review</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ===== 10. KEY LOGIC ===== -->
+    <div class="section">
+        <h2 class="section-title">⚙️ Logic quan trọng</h2>
+        <p class="section-subtitle">Các quy tắc business logic cốt lõi.</p>
+        
+        <div class="card">
+            <h3>🔐 isChairman (per-project)</h3>
+            <p>Chairman được xác định <strong>theo từng project</strong>, không phải global role. Logic: <code style="background:#334155;padding:2px 8px;border-radius:4px;font-size:12px;">project.chairman_id === currentUser.id || project.lead_id === currentUser.id || currentUser.role === "chairman"</code></p>
+        </div>
+        <div class="card">
+            <h3>👁️ Module Visibility</h3>
+            <p><strong>Chairman</strong>: Thấy tất cả modules trong project. <strong>Nhân sự</strong>: Chỉ thấy modules được assign (<code style="background:#334155;padding:2px 8px;border-radius:4px;font-size:12px;">module.assigned_to === currentUser.id</code>).</p>
+        </div>
+        <div class="card">
+            <h3>📊 Progress tự động</h3>
+            <p>Khi upload file cho checklist → checklist item tự đánh dấu "done" → hệ thống tự tính <code style="background:#334155;padding:2px 8px;border-radius:4px;font-size:12px;">progress_pct = (done / total) * 100</code> cho module.</p>
+        </div>
+        <div class="card">
+            <h3>🔴 Badge Sidebar</h3>
+            <p>"Công việc của tôi" hiện badge đỏ = <strong>modules assigned (chưa done)</strong> + <strong>modules cần review (nếu là chairman)</strong>. Tự refresh mỗi 30 giây.</p>
+        </div>
+        <div class="card">
+            <h3>🔄 Changes Requested Flow</h3>
+            <p>Khi chairman yêu cầu sửa: <code style="background:#334155;padding:2px 8px;border-radius:4px;font-size:12px;">review_comment</code> được lưu vào module → hiển thị ô đỏ "📝 Nhận xét từ Chủ tịch" → nhân sự sửa → upload lại → "📋 Báo cáo hoàn thành" → module quay lại <code style="background:#334155;padding:2px 8px;border-radius:4px;font-size:12px;">in_review</code>.</p>
+        </div>
+    </div>
+
+</div>
+
+<div class="footer">
+    <p>AI Together — Libe Tech © 2026 | Tài liệu hệ thống v2.0 | Tạo bởi Antigravity AI</p>
+</div>
+
+</body>
+</html>
