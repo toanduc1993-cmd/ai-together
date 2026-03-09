@@ -870,7 +870,7 @@ export default function ProjectDetailPage({ params }) {
                         await updateModuleStatus(showReview, form.decision, { review_comment: form.comment || "" });
                         setShowReview(null); setForm({});
                     }} disabled={!form.decision}
-                        className="btn-primary" style={{ width: "100%", opacity: form.decision ? 1 : 0.5, marginTop: 8 }}>Gửi Review</button>
+                        className="btn-primary" style={{ width: "100%", opacity: form.decision ? 1 : 0.5, marginTop: 8 }}>Thực hiện</button>
                 </Modal>
             )}
 
