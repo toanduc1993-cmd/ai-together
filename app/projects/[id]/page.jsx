@@ -12,7 +12,8 @@ const ICO = { sm: 16, md: 20, lg: 24 };
 
 const STATUS_CFG = {
     planned: { color: "var(--accent)", label: "Kế hoạch", icon: "📋" },
-    in_progress: { color: "var(--amber)", label: "Đang phát triển", icon: "🔨" },
+    in_progress: { color: "var(--amber)", label: "Đang thực hiện", icon: "🔨" },
+    in_review: { color: "#8B5CF6", label: "Chờ duyệt", icon: "👀" },
     review: { color: "#8B5CF6", label: "Review", icon: "👀" },
     submitted: { color: "var(--blue)", label: "Đã nộp", icon: "📤" },
     approved: { color: "var(--green)", label: "Phê duyệt", icon: "✅" },
@@ -130,16 +131,30 @@ export default function ProjectDetailPage({ params }) {
             method: "PUT", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: moduleId, status, ...extraData, user_id: currentUser.id, project_id: id }),
         });
-        // Auto-notify assignee when status changes
         const mod = modules.find(m => m.id === moduleId);
+        const STATUS_LABELS = { planned: "Kế hoạch", in_progress: "Đang thực hiện", in_review: "Chờ duyệt", done: "Hoàn thành", approved: "Phê duyệt", changes_requested: "Yêu cầu sửa" };
+
+        // If assigned user marks complete → notify chairman
+        if (status === "in_review" && project?.chairman_id) {
+            await fetch("/api/notifications", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    user_id: project.chairman_id,
+                    type: "module_status_changed",
+                    title: `Module "${mod?.title}" cần review`,
+                    body: `${currentUser.display_name} đã hoàn thành và chờ bạn duyệt.`,
+                    entity_type: "module", entity_id: moduleId,
+                }),
+            });
+        }
+        // If chairman takes action → notify assigned user
         if (mod?.assigned_to && mod.assigned_to !== currentUser.id) {
-            const STATUS_LABELS = { planned: "Kế hoạch", in_progress: "Đang phát triển", done: "Hoàn thành", submitted: "Đã nộp", approved: "Phê duyệt", changes_requested: "Yêu cầu sửa" };
             await fetch("/api/notifications", {
                 method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     user_id: mod.assigned_to,
                     type: "module_status_changed",
-                    title: `Module "${mod.title}" → ${STATUS_LABELS[status] || status}`,
+                    title: `Module "${mod?.title}" → ${STATUS_LABELS[status] || status}`,
                     body: `${currentUser.display_name} đã chuyển trạng thái module của bạn.`,
                     entity_type: "module", entity_id: moduleId,
                 }),
@@ -264,210 +279,212 @@ export default function ProjectDetailPage({ params }) {
                 <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
                     <Package size={ICO.md} color="var(--accent)" /> Modules ({modules.length})
                 </h3>
-                {isProjectLead && (
+                {isChairman && (
                     <button onClick={() => { setForm({}); setShowAddModule(true); setError(""); }} className="btn-primary" style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 14 }}>
                         <Plus size={ICO.sm} /> Thêm Module
                     </button>
                 )}
             </div>
 
-            {/* Module list */}
-            {modules.length === 0 ? (
-                <div style={{ textAlign: "center", padding: 48, color: "var(--text-muted)", fontSize: 15, background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-primary)" }}>
-                    Chưa có module. {isProjectLead && "Nhấn \"Thêm Module\" để bắt đầu!"}
-                </div>
-            ) : modules.map(mod => {
-                const sc = STATUS_CFG[mod.status] || STATUS_CFG.planned;
-                const pc = PRIORITY_CFG[mod.priority] || PRIORITY_CFG.medium;
-                const isExpanded = expandedModule === mod.id;
-                const items = checklists[mod.id] || [];
-                const moduleFiles = files[mod.id] || [];
-                const isOwner = currentUser?.id === mod.assigned_to;
-                const canManage = isOwner || isChairman || isProjectLead;
-                const canSubmit = isOwner && (mod.status === "in_progress" || mod.status === "changes_requested");
-                const canReview = isChairman && mod.status === "submitted";
+            {/* Module list — non-chairman only sees assigned modules */}
+            {(() => {
+                const visibleModules = isChairman ? modules : modules.filter(m => m.assigned_to === currentUser?.id);
+                return visibleModules.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: 48, color: "var(--text-muted)", fontSize: 15, background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-primary)" }}>
+                        {isChairman ? 'Chưa có module. Nhấn "Thêm Module" để bắt đầu!' : "Bạn chưa được giao module nào."}
+                    </div>
+                ) : visibleModules.map(mod => {
+                    const sc = STATUS_CFG[mod.status] || STATUS_CFG.planned;
+                    const pc = PRIORITY_CFG[mod.priority] || PRIORITY_CFG.medium;
+                    const isExpanded = expandedModule === mod.id;
+                    const items = checklists[mod.id] || [];
+                    const moduleFiles = files[mod.id] || [];
+                    const isOwner = currentUser?.id === mod.assigned_to;
+                    const canStart = isOwner && mod.status === "planned";
+                    const canComplete = isOwner && (mod.status === "in_progress" || mod.status === "changes_requested");
+                    const canReview = isChairman && mod.status === "in_review";
 
-                return (
-                    <div key={mod.id} className="glass-card" style={{ marginBottom: 8, overflow: "hidden", borderColor: isExpanded ? "var(--border-active)" : undefined }}>
-                        {/* Module header */}
-                        <div onClick={() => toggleModule(mod.id)} style={{ display: "flex", alignItems: "center", padding: "14px 18px", cursor: "pointer", gap: 12 }}>
-                            {isExpanded ? <ChevronDown size={ICO.md} color="var(--accent)" /> : <ChevronRight size={ICO.md} color="var(--text-muted)" />}
-                            <span style={{ fontSize: 22, flexShrink: 0 }}>{sc.icon}</span>
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)" }}>{mod.title}</div>
-                                <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap" }}>
-                                    <span style={{ fontSize: 12, fontWeight: 600, color: sc.color, background: `${sc.color}12`, padding: "2px 10px", borderRadius: 8 }}>{sc.label}</span>
-                                    <span style={{ fontSize: 12, fontWeight: 600, color: pc.color, background: `${pc.color}12`, padding: "2px 10px", borderRadius: 8 }}>{pc.label}</span>
-                                    {mod.assignee && <span style={{ fontSize: 13, color: "var(--text-muted)" }}>👤 {mod.assignee.display_name}</span>}
-                                    {mod.deadline && <span style={{ fontSize: 13, color: "var(--text-muted)" }}>📅 {new Date(mod.deadline).toLocaleDateString("vi-VN")}</span>}
-                                </div>
-                            </div>
-                            <div style={{ width: 100, display: "flex", alignItems: "center", gap: 8 }}>
-                                <div style={{ flex: 1, height: 6, background: "var(--bg-tertiary)", borderRadius: 3, overflow: "hidden" }}>
-                                    <div style={{ height: "100%", width: `${mod.progress_pct}%`, background: mod.progress_pct === 100 ? "var(--green)" : "var(--accent)", borderRadius: 3, transition: "width 0.3s" }} />
-                                </div>
-                                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-tertiary)" }}>{mod.progress_pct}%</span>
-                            </div>
-                        </div>
-
-                        {/* Expanded panel */}
-                        {isExpanded && (
-                            <div style={{ borderTop: "1px solid var(--border-primary)", padding: "16px 18px" }}>
-                                {mod.description && <p style={{ color: "var(--text-tertiary)", fontSize: 14, margin: "0 0 14px", lineHeight: 1.6 }}>{mod.description}</p>}
-
-                                {/* Action buttons */}
-                                <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-                                    {canManage && mod.status === "planned" && (
-                                        <ActionBtn label="▶ Bắt đầu" bgColor="#F59E0B" onClick={(e) => {
-                                            e.stopPropagation();
-                                            setDeadlineDate(mod.deadline ? new Date(mod.deadline).toISOString().split('T')[0] : "");
-                                            setShowDeadlinePicker(mod.id);
-                                        }} />
-                                    )}
-                                    {canManage && mod.status === "in_progress" && (() => {
-                                        const allDone = items.length > 0 && items.every(t => t.status === "done");
-                                        return allDone ? (
-                                            <ActionBtn label="✅ Hoàn thành" bgColor="#10B981" onClick={(e) => { e.stopPropagation(); updateModuleStatus(mod.id, "done"); }} />
-                                        ) : (
-                                            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#F59E0B", background: "#F59E0B18", padding: "6px 14px", borderRadius: 8, fontWeight: 600 }}>
-                                                ⚠️ Cần hoàn thành tất cả checklist ({items.filter(t => t.status === "done").length}/{items.length})
-                                            </div>
-                                        );
-                                    })()}
-                                    {canSubmit && (
-                                        <ActionBtn label="📤 Nộp kết quả" bgColor="#3B82F6" onClick={(e) => { e.stopPropagation(); setForm({}); setUploadingFiles([]); setShowSubmit(mod.id); setError(""); }} />
-                                    )}
-                                    {canReview && (
-                                        <ActionBtn label="👀 Review" bgColor="#6366F1" onClick={(e) => { e.stopPropagation(); setForm({}); setShowReview(mod.id); setError(""); }} />
-                                    )}
-                                    {/* Upload files button */}
-                                    {(isOwner || isProjectLead) && (
-                                        <ActionBtn label="📎 Đính kèm" bgColor="#06B6D4" onClick={(e) => {
-                                            e.stopPropagation();
-                                            const input = document.createElement("input");
-                                            input.type = "file"; input.multiple = true;
-                                            input.onchange = (ev) => { if (ev.target.files.length) uploadFiles(mod.id, ev.target.files); };
-                                            input.click();
-                                        }} />
-                                    )}
-                                </div>
-
-                                {uploading && <div style={{ fontSize: 14, color: "var(--accent)", marginBottom: 10, animation: "pulse-soft 1s infinite" }}>⏳ Đang upload...</div>}
-
-                                {/* === ATTACHED FILES === */}
-                                {moduleFiles.length > 0 && (
-                                    <div style={{ marginBottom: 14 }}>
-                                        <h4 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 600, color: "var(--text-tertiary)", display: "flex", alignItems: "center", gap: 6 }}>
-                                            <Paperclip size={ICO.sm} /> Tài liệu đính kèm ({moduleFiles.length})
-                                        </h4>
-                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 8 }}>
-                                            {moduleFiles.map(f => (
-                                                <div key={f.id} style={{
-                                                    display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
-                                                    borderRadius: "var(--radius-sm)", border: "1px solid var(--border-primary)",
-                                                    background: "var(--bg-secondary)", fontSize: 14,
-                                                }}>
-                                                    <span style={{ fontSize: 22, flexShrink: 0 }}>{getFileIcon(f.file_type)}</span>
-                                                    <div style={{ flex: 1, overflow: "hidden" }}>
-                                                        <div style={{ fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.filename}</div>
-                                                        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
-                                                            {formatFileSize(f.file_size)} {f.checklist_label && `· ${f.checklist_label}`}
-                                                        </div>
-                                                    </div>
-                                                    <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                                                        {f.file_url && f.file_url.startsWith("http") && (
-                                                            <a href={f.file_url} target="_blank" rel="noopener noreferrer" download
-                                                                style={{ background: "var(--green-bg)", color: "var(--green)", border: "none", borderRadius: 8, padding: 6, cursor: "pointer", display: "flex" }}>
-                                                                <Download size={ICO.sm} />
-                                                            </a>
-                                                        )}
-                                                        {(isOwner || isProjectLead || isChairman) && (
-                                                            <button onClick={() => deleteFile(f.id, mod.id)}
-                                                                style={{ background: "var(--red-bg)", color: "var(--red)", border: "none", borderRadius: 8, padding: 6, cursor: "pointer", display: "flex" }}>
-                                                                <Trash2 size={ICO.sm} />
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
+                    return (
+                        <div key={mod.id} className="glass-card" style={{ marginBottom: 8, overflow: "hidden", borderColor: isExpanded ? "var(--border-active)" : undefined }}>
+                            {/* Module header */}
+                            <div onClick={() => toggleModule(mod.id)} style={{ display: "flex", alignItems: "center", padding: "14px 18px", cursor: "pointer", gap: 12 }}>
+                                {isExpanded ? <ChevronDown size={ICO.md} color="var(--accent)" /> : <ChevronRight size={ICO.md} color="var(--text-muted)" />}
+                                <span style={{ fontSize: 22, flexShrink: 0 }}>{sc.icon}</span>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)" }}>{mod.title}</div>
+                                    <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap" }}>
+                                        <span style={{ fontSize: 12, fontWeight: 600, color: sc.color, background: `${sc.color}12`, padding: "2px 10px", borderRadius: 8 }}>{sc.label}</span>
+                                        <span style={{ fontSize: 12, fontWeight: 600, color: pc.color, background: `${pc.color}12`, padding: "2px 10px", borderRadius: 8 }}>{pc.label}</span>
+                                        {mod.assignee && <span style={{ fontSize: 13, color: "var(--text-muted)" }}>👤 {mod.assignee.display_name}</span>}
+                                        {mod.deadline && <span style={{ fontSize: 13, color: "var(--text-muted)" }}>📅 {new Date(mod.deadline).toLocaleDateString("vi-VN")}</span>}
                                     </div>
-                                )}
-
-                                {/* Checklist */}
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                                    <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "var(--text-tertiary)" }}>📋 Checklist ({items.length})</h4>
-                                    {isProjectLead && (
-                                        <button onClick={() => { setForm({}); setShowAddTask(mod.id); setError(""); }}
-                                            className="btn-ghost" style={{ padding: "5px 12px", fontSize: 13, display: "flex", alignItems: "center", gap: 4 }}>
-                                            <Plus size={ICO.sm} /> Thêm task
-                                        </button>
-                                    )}
                                 </div>
-                                {items.length === 0 ? (
-                                    <div style={{ fontSize: 14, color: "var(--text-muted)", padding: "14px 0" }}>Chưa có checklist item.</div>
-                                ) : items.map(item => {
-                                    const taskFiles = moduleFiles.filter(f => f.checklist_item_id === item.id);
-                                    const isDone = item.status === "done";
-                                    return (
-                                        <div key={item.id} style={{
-                                            padding: "12px 16px", borderRadius: "var(--radius-sm)", marginBottom: 8, fontSize: 14,
-                                            border: isDone ? "1px solid #10B98140" : "1px solid var(--border-primary)",
-                                            background: isDone ? "#10B98108" : "var(--bg-elevated)",
-                                        }}>
-                                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                                {/* Status icon */}
-                                                <span style={{ fontSize: 18 }}>{isDone ? "✅" : "⬜"}</span>
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{
-                                                        fontWeight: 600, fontSize: 15,
-                                                        color: isDone ? "var(--text-muted)" : "var(--text-primary)",
-                                                        textDecoration: isDone ? "line-through" : "none",
-                                                    }}>{item.title}</div>
-                                                    {isDone && taskFiles.length > 0 && (
-                                                        <div style={{ fontSize: 12, color: "#10B981", marginTop: 4, fontWeight: 600 }}>✓ Đã nộp tài liệu</div>
-                                                    )}
+                                <div style={{ width: 100, display: "flex", alignItems: "center", gap: 8 }}>
+                                    <div style={{ flex: 1, height: 6, background: "var(--bg-tertiary)", borderRadius: 3, overflow: "hidden" }}>
+                                        <div style={{ height: "100%", width: `${mod.progress_pct}%`, background: mod.progress_pct === 100 ? "var(--green)" : "var(--accent)", borderRadius: 3, transition: "width 0.3s" }} />
+                                    </div>
+                                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-tertiary)" }}>{mod.progress_pct}%</span>
+                                </div>
+                            </div>
+
+                            {/* Expanded panel */}
+                            {isExpanded && (
+                                <div style={{ borderTop: "1px solid var(--border-primary)", padding: "16px 18px" }}>
+                                    {mod.description && <p style={{ color: "var(--text-tertiary)", fontSize: 14, margin: "0 0 14px", lineHeight: 1.6 }}>{mod.description}</p>}
+
+                                    {/* Action buttons */}
+                                    <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+                                        {/* Assigned user: Bắt đầu */}
+                                        {canStart && (
+                                            <ActionBtn label="▶ Bắt đầu" bgColor="#F59E0B" onClick={(e) => {
+                                                e.stopPropagation();
+                                                updateModuleStatus(mod.id, "in_progress");
+                                            }} />
+                                        )}
+                                        {/* Assigned user: Hoàn thành → sends to in_review */}
+                                        {canComplete && (() => {
+                                            const allDone = items.length > 0 && items.every(t => t.status === "done");
+                                            return allDone ? (
+                                                <ActionBtn label="✅ Hoàn thành" bgColor="#10B981" onClick={(e) => { e.stopPropagation(); updateModuleStatus(mod.id, "in_review"); }} />
+                                            ) : (
+                                                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#F59E0B", background: "#F59E0B18", padding: "6px 14px", borderRadius: 8, fontWeight: 600 }}>
+                                                    ⚠️ Cần nộp tài liệu tất cả checklist ({items.filter(t => t.status === "done").length}/{items.length})
                                                 </div>
-                                                {/* Upload button — only show if NOT done */}
-                                                {!isDone && (
-                                                    <button onClick={() => {
-                                                        const input = document.createElement("input");
-                                                        input.type = "file"; input.multiple = true;
-                                                        input.onchange = (e) => { if (e.target.files.length) uploadTaskFile(item.id, mod.id, e.target.files); };
-                                                        input.click();
-                                                    }} style={{
-                                                        background: "#6366F118", border: "1px solid #6366F140",
-                                                        borderRadius: 8, padding: "6px 14px", cursor: "pointer",
-                                                        color: "#6366F1", display: "flex", alignItems: "center", gap: 6,
-                                                        fontSize: 13, fontWeight: 600, transition: "all 0.2s",
+                                            );
+                                        })()}
+                                        {/* Chairman: Review on in_review modules */}
+                                        {canReview && (
+                                            <ActionBtn label="👀 Xem & Duyệt" bgColor="#6366F1" onClick={(e) => { e.stopPropagation(); setForm({}); setShowReview(mod.id); setError(""); }} />
+                                        )}
+                                        {/* Chairman: đính kèm tài liệu nghiệp vụ */}
+                                        {isChairman && (mod.status === "planned" || mod.status === "in_progress") && (
+                                            <ActionBtn label="📎 Đính kèm tài liệu" bgColor="#06B6D4" onClick={(e) => {
+                                                e.stopPropagation();
+                                                const input = document.createElement("input");
+                                                input.type = "file"; input.multiple = true;
+                                                input.onchange = (ev) => { if (ev.target.files.length) uploadFiles(mod.id, ev.target.files); };
+                                                input.click();
+                                            }} />
+                                        )}
+                                    </div>
+
+                                    {uploading && <div style={{ fontSize: 14, color: "var(--accent)", marginBottom: 10, animation: "pulse-soft 1s infinite" }}>⏳ Đang upload...</div>}
+
+                                    {/* === ATTACHED FILES === */}
+                                    {moduleFiles.length > 0 && (
+                                        <div style={{ marginBottom: 14 }}>
+                                            <h4 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 600, color: "var(--text-tertiary)", display: "flex", alignItems: "center", gap: 6 }}>
+                                                <Paperclip size={ICO.sm} /> Tài liệu đính kèm ({moduleFiles.length})
+                                            </h4>
+                                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 8 }}>
+                                                {moduleFiles.map(f => (
+                                                    <div key={f.id} style={{
+                                                        display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
+                                                        borderRadius: "var(--radius-sm)", border: "1px solid var(--border-primary)",
+                                                        background: "var(--bg-secondary)", fontSize: 14,
                                                     }}>
-                                                        <Upload size={14} /> Nộp tài liệu
-                                                    </button>
-                                                )}
-                                            </div>
-                                            {/* Show task files */}
-                                            {taskFiles.length > 0 && (
-                                                <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border-primary)" }}>
-                                                    {taskFiles.map(f => (
-                                                        <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 13 }}>
-                                                            <span style={{ fontSize: 16 }}>{getFileIcon(f.file_type)}</span>
-                                                            <span style={{ color: "var(--text-secondary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.filename}</span>
-                                                            <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{formatFileSize(f.file_size)}</span>
-                                                            {f.file_url?.startsWith("http") && (
-                                                                <a href={f.file_url} target="_blank" rel="noopener noreferrer" download style={{ color: "var(--green)", display: "flex" }}><Download size={14} /></a>
+                                                        <span style={{ fontSize: 22, flexShrink: 0 }}>{getFileIcon(f.file_type)}</span>
+                                                        <div style={{ flex: 1, overflow: "hidden" }}>
+                                                            <div style={{ fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.filename}</div>
+                                                            <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+                                                                {formatFileSize(f.file_size)} {f.checklist_label && `· ${f.checklist_label}`}
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                                                            {f.file_url && f.file_url.startsWith("http") && (
+                                                                <a href={f.file_url} target="_blank" rel="noopener noreferrer" download
+                                                                    style={{ background: "var(--green-bg)", color: "var(--green)", border: "none", borderRadius: 8, padding: 6, cursor: "pointer", display: "flex" }}>
+                                                                    <Download size={ICO.sm} />
+                                                                </a>
+                                                            )}
+                                                            {(isOwner || isProjectLead || isChairman) && (
+                                                                <button onClick={() => deleteFile(f.id, mod.id)}
+                                                                    style={{ background: "var(--red-bg)", color: "var(--red)", border: "none", borderRadius: 8, padding: 6, cursor: "pointer", display: "flex" }}>
+                                                                    <Trash2 size={ICO.sm} />
+                                                                </button>
                                                             )}
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            )}
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-                );
-            })}
+                                    )}
+
+                                    {/* Checklist */}
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                                        <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "var(--text-tertiary)" }}>📋 Checklist ({items.length})</h4>
+                                        {isChairman && mod.status === "planned" && (
+                                            <button onClick={() => { setForm({}); setShowAddTask(mod.id); setError(""); }}
+                                                className="btn-ghost" style={{ padding: "5px 12px", fontSize: 13, display: "flex", alignItems: "center", gap: 4 }}>
+                                                <Plus size={ICO.sm} /> Thêm checklist
+                                            </button>
+                                        )}
+                                    </div>
+                                    {items.length === 0 ? (
+                                        <div style={{ fontSize: 14, color: "var(--text-muted)", padding: "14px 0" }}>Chưa có checklist item.</div>
+                                    ) : items.map(item => {
+                                        const taskFiles = moduleFiles.filter(f => f.checklist_item_id === item.id);
+                                        const isDone = item.status === "done";
+                                        return (
+                                            <div key={item.id} style={{
+                                                padding: "12px 16px", borderRadius: "var(--radius-sm)", marginBottom: 8, fontSize: 14,
+                                                border: isDone ? "1px solid #10B98140" : "1px solid var(--border-primary)",
+                                                background: isDone ? "#10B98108" : "var(--bg-elevated)",
+                                            }}>
+                                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                                    {/* Status icon */}
+                                                    <span style={{ fontSize: 18 }}>{isDone ? "✅" : "⬜"}</span>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{
+                                                            fontWeight: 600, fontSize: 15,
+                                                            color: isDone ? "var(--text-muted)" : "var(--text-primary)",
+                                                            textDecoration: isDone ? "line-through" : "none",
+                                                        }}>{item.title}</div>
+                                                        {isDone && taskFiles.length > 0 && (
+                                                            <div style={{ fontSize: 12, color: "#10B981", marginTop: 4, fontWeight: 600 }}>✓ Đã nộp tài liệu</div>
+                                                        )}
+                                                    </div>
+                                                    {/* Upload button — only for assigned user when module is in_progress */}
+                                                    {!isDone && isOwner && (mod.status === "in_progress" || mod.status === "changes_requested") && (
+                                                        <button onClick={() => {
+                                                            const input = document.createElement("input");
+                                                            input.type = "file"; input.multiple = true;
+                                                            input.onchange = (e) => { if (e.target.files.length) uploadTaskFile(item.id, mod.id, e.target.files); };
+                                                            input.click();
+                                                        }} style={{
+                                                            background: "#6366F118", border: "1px solid #6366F140",
+                                                            borderRadius: 8, padding: "6px 14px", cursor: "pointer",
+                                                            color: "#6366F1", display: "flex", alignItems: "center", gap: 6,
+                                                            fontSize: 13, fontWeight: 600, transition: "all 0.2s",
+                                                        }}>
+                                                            <Upload size={14} /> Nộp tài liệu
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                {/* Show task files */}
+                                                {taskFiles.length > 0 && (
+                                                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border-primary)" }}>
+                                                        {taskFiles.map(f => (
+                                                            <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 13 }}>
+                                                                <span style={{ fontSize: 16 }}>{getFileIcon(f.file_type)}</span>
+                                                                <span style={{ color: "var(--text-secondary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.filename}</span>
+                                                                <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{formatFileSize(f.file_size)}</span>
+                                                                {f.file_url?.startsWith("http") && (
+                                                                    <a href={f.file_url} target="_blank" rel="noopener noreferrer" download style={{ color: "var(--green)", display: "flex" }}><Download size={14} /></a>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    );
+                });
+            })()}
 
             {/* ===== MODALS ===== */}
 
@@ -477,8 +494,8 @@ export default function ProjectDetailPage({ params }) {
                     <Input label="Tên module *" value={form.title || ""} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
                     <Input label="Mô tả" value={form.description || ""} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                        <Select label="Assign cho" value={form.assigned_to || ""} onChange={e => setForm(f => ({ ...f, assigned_to: e.target.value }))}>
-                            <option value="">-- Chọn --</option>
+                        <Select label="Assign nhân sự" value={form.assigned_to || ""} onChange={e => setForm(f => ({ ...f, assigned_to: e.target.value }))}>
+                            <option value="">-- Chọn sau --</option>
                             {users.map(u => <option key={u.id} value={u.id}>{u.display_name}</option>)}
                         </Select>
                         <Select label="Ưu tiên" value={form.priority || "medium"} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
@@ -489,6 +506,9 @@ export default function ProjectDetailPage({ params }) {
                         </Select>
                     </div>
                     <Input label="Deadline" type="date" value={form.deadline || ""} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))} />
+                    <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 8, lineHeight: 1.5 }}>
+                        💡 Sau khi tạo module, bạn có thể tạo checklist và đính kèm tài liệu nghiệp vụ.
+                    </p>
                     <button onClick={addModule} className="btn-primary" style={{ width: "100%", marginTop: 8 }}>Tạo Module</button>
                 </Modal>
             )}
@@ -552,32 +572,58 @@ export default function ProjectDetailPage({ params }) {
                 </Modal>
             )}
 
-            {/* Review with file viewing */}
+            {/* Review modal for Chairman to review in_review modules */}
             {showReview && (
-                <Modal title="👀 Review Module" onClose={() => setShowReview(null)} width={560}>
+                <Modal title="👀 Review Module" onClose={() => setShowReview(null)} width={600}>
                     {error && <div style={{ color: "var(--red)", fontSize: 12, marginBottom: 8 }}>⚠️ {error}</div>}
 
-                    {/* Show attached files for review */}
-                    {(files[showReview] || []).length > 0 && (
-                        <div style={{ marginBottom: 16 }}>
-                            <h4 style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 600, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 4 }}>
-                                <Paperclip size={14} /> Tài liệu đã nộp ({files[showReview].length})
-                            </h4>
-                            {files[showReview].map(f => (
-                                <div key={f.id} style={{
-                                    display: "flex", alignItems: "center", gap: 8, padding: "8px 10px",
-                                    borderRadius: "var(--radius-sm)", border: "1px solid var(--border-primary)",
-                                    background: "var(--bg-secondary)", marginBottom: 4, fontSize: 12,
+                    {/* Checklist status summary */}
+                    <div style={{ marginBottom: 16 }}>
+                        <h4 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>📋 Checklist đã hoàn thành</h4>
+                        {(checklists[showReview] || []).map(item => {
+                            const itemFiles = (files[showReview] || []).filter(f => f.checklist_item_id === item.id);
+                            return (
+                                <div key={item.id} style={{
+                                    padding: "10px 14px", borderRadius: 8, marginBottom: 6,
+                                    border: "1px solid #10B98140", background: "#10B98108",
                                 }}>
-                                    <span style={{ fontSize: 18 }}>{getFileIcon(f.file_type)}</span>
-                                    <div style={{ flex: 1, overflow: "hidden" }}>
-                                        <div style={{ fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.filename}</div>
-                                        <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{formatFileSize(f.file_size)} · {f.checklist_label}</div>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        <span>✅</span>
+                                        <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{item.title}</span>
                                     </div>
+                                    {itemFiles.length > 0 && (
+                                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border-primary)" }}>
+                                            {itemFiles.map(f => (
+                                                <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 13 }}>
+                                                    <span style={{ fontSize: 16 }}>{getFileIcon(f.file_type)}</span>
+                                                    <span style={{ flex: 1, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.filename}</span>
+                                                    <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{formatFileSize(f.file_size)}</span>
+                                                    {f.file_url?.startsWith("http") && (
+                                                        <a href={f.file_url} target="_blank" rel="noopener noreferrer" download
+                                                            style={{ background: "#10B98118", color: "#10B981", border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 12, display: "flex", alignItems: "center", gap: 4, textDecoration: "none", fontWeight: 600 }}>
+                                                            <Download size={12} /> Tải về
+                                                        </a>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* All module attachments */}
+                    {(files[showReview] || []).filter(f => !f.checklist_item_id).length > 0 && (
+                        <div style={{ marginBottom: 16 }}>
+                            <h4 style={{ margin: "0 0 8px", fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>📎 Tài liệu module</h4>
+                            {(files[showReview] || []).filter(f => !f.checklist_item_id).map(f => (
+                                <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border-primary)", marginBottom: 4, fontSize: 13 }}>
+                                    <span style={{ fontSize: 16 }}>{getFileIcon(f.file_type)}</span>
+                                    <span style={{ flex: 1, color: "var(--text-secondary)" }}>{f.filename}</span>
+                                    <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{formatFileSize(f.file_size)}</span>
                                     {f.file_url?.startsWith("http") && (
-                                        <a href={f.file_url} target="_blank" rel="noopener noreferrer" download className="btn-ghost" style={{ padding: "4px 10px", fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
-                                            <Download size={12} /> Tải
-                                        </a>
+                                        <a href={f.file_url} target="_blank" rel="noopener noreferrer" download style={{ color: "var(--green)", display: "flex" }}><Download size={14} /></a>
                                     )}
                                 </div>
                             ))}
@@ -586,15 +632,16 @@ export default function ProjectDetailPage({ params }) {
 
                     <Select label="Quyết định *" value={form.decision || ""} onChange={e => setForm(f => ({ ...f, decision: e.target.value }))}>
                         <option value="">-- Chọn --</option>
-                        <option value="approved">✅ Phê duyệt</option>
-                        <option value="changes_requested">🔄 Yêu cầu sửa</option>
-                        <option value="rejected">❌ Từ chối</option>
+                        <option value="done">✅ Phê duyệt hoàn thành</option>
+                        <option value="changes_requested">🔄 Yêu cầu sửa lại</option>
                     </Select>
-                    <Input label="Comment" value={form.comment || ""} onChange={e => setForm(f => ({ ...f, comment: e.target.value }))} placeholder="Nhận xét..." />
-                    <button onClick={() => {
-                        fetch(`/api/deliverables?module_id=${showReview}`).then(r => r.json()).then(d => { if (d.length) reviewDeliverable(d[0].id); });
+                    <Input label="Nhận xét" value={form.comment || ""} onChange={e => setForm(f => ({ ...f, comment: e.target.value }))} placeholder="Nhận xét cho nhân sự..." />
+                    <button onClick={async () => {
+                        if (!form.decision) return;
+                        await updateModuleStatus(showReview, form.decision);
+                        setShowReview(null); setForm({});
                     }} disabled={!form.decision}
-                        className="btn-primary" style={{ width: "100%", opacity: form.decision ? 1 : 0.5 }}>Gửi Review</button>
+                        className="btn-primary" style={{ width: "100%", opacity: form.decision ? 1 : 0.5, marginTop: 8 }}>Gửi Review</button>
                 </Modal>
             )}
 
