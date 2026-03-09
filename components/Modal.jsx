@@ -1,17 +1,24 @@
 "use client";
+import { X } from "lucide-react";
+
 export default function Modal({ title, onClose, children, width = 480 }) {
     return (
-        <div onClick={onClose} style={{
-            position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)",
-            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 16,
+        <div className="fade-in" onClick={onClose} style={{
+            position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center",
+            background: "var(--bg-overlay)", backdropFilter: "blur(4px)",
         }}>
-            <div onClick={e => e.stopPropagation()} style={{
-                background: "#FFFFFF", borderRadius: 16, padding: 24, width: "100%", maxWidth: width,
-                maxHeight: "85vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+            <div className="scale-in" onClick={e => e.stopPropagation()} style={{
+                width, maxWidth: "92vw", maxHeight: "85vh", overflow: "auto",
+                background: "var(--bg-elevated)", borderRadius: "var(--radius-xl)",
+                border: "1px solid var(--border-primary)", boxShadow: "var(--shadow-xl)",
+                padding: "24px 28px",
             }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0F172A" }}>{title}</h3>
-                    <button onClick={onClose} style={{ background: "#F1F5F9", border: "none", borderRadius: 8, width: 28, height: 28, cursor: "pointer", fontWeight: 700, color: "#64748B", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, paddingBottom: 16, borderBottom: "1px solid var(--border-primary)" }}>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>{title}</h3>
+                    <button onClick={onClose} style={{
+                        background: "var(--bg-tertiary)", border: "none", borderRadius: 8, width: 32, height: 32,
+                        cursor: "pointer", color: "var(--text-secondary)", display: "flex", alignItems: "center", justifyContent: "center",
+                    }}><X size={16} /></button>
                 </div>
                 {children}
             </div>

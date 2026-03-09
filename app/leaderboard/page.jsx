@@ -1,137 +1,137 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Award, Trophy, Flame, TrendingUp, Zap } from "lucide-react";
+import { useUser } from "@/lib/UserContext";
+import { Trophy, Medal, Crown, Flame, TrendingUp } from "lucide-react";
 
 export default function LeaderboardPage() {
+    const { currentUser } = useUser();
     const [scores, setScores] = useState([]);
-    const [users, setUsers] = useState([]);
+    const [period, setPeriod] = useState("weekly");
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        Promise.all([
-            fetch("/api/scores?period=weekly").then(r => r.json()),
-            fetch("/api/users").then(r => r.json()),
-        ]).then(([s, u]) => {
+        fetch(`/api/scores?period=${period}`).then(r => r.json()).then(s => {
             setScores(Array.isArray(s) ? s : []);
-            setUsers(Array.isArray(u) ? u : []);
             setLoading(false);
-        }).catch(() => setLoading(false));
-    }, []);
+        });
+    }, [period]);
 
-    // Build leaderboard from users if no scores yet
-    const leaderboard = scores.length > 0
-        ? scores.map((s, i) => ({ ...s, rank: i + 1 }))
-        : users.filter(u => u.role !== "admin").map((u, i) => ({
-            rank: i + 1,
-            user: { id: u.id, display_name: u.display_name, avatar: u.avatar, username: u.username, role: u.role },
-            tempo: 50, task_completion: 0, collaboration: 0, ai_adoption: 0, composite: 0, streak: 0,
-        }));
+    if (loading) return <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Đang tải...</div>;
 
-    const PODIUM_MEDALS = ["🥇", "🥈", "🥉"];
-    const PODIUM_COLORS = ["#F59E0B", "#94A3B8", "#CD7F32"];
-    const TEMPO_LABELS = { 80: "🔥 On Fire", 60: "✅ Active", 40: "📋 Normal", 20: "🐢 Slow", 0: "💤 Inactive" };
-
-    const getTempoLabel = (tempo) => {
-        if (tempo >= 80) return TEMPO_LABELS[80];
-        if (tempo >= 60) return TEMPO_LABELS[60];
-        if (tempo >= 40) return TEMPO_LABELS[40];
-        if (tempo >= 20) return TEMPO_LABELS[20];
-        return TEMPO_LABELS[0];
-    };
-
-    if (loading) return <div style={{ textAlign: "center", padding: 40, color: "#94A3B8" }}>Đang tải...</div>;
+    const top3 = scores.slice(0, 3);
+    const rest = scores.slice(3);
+    const PODIUM_ORDER = [1, 0, 2]; // silver, gold, bronze visual order
+    const PODIUM_HEIGHTS = [100, 130, 80];
+    const PODIUM_COLORS = ["#C0C0C0", "#FFD700", "#CD7F32"];
+    const PODIUM_BG = ["linear-gradient(180deg, #E8EDF2 0%, #CBD5E1 100%)", "linear-gradient(180deg, #FEF3C7 0%, #F59E0B 100%)", "linear-gradient(180deg, #FDDCB5 0%, #D97706 100%)"];
+    const MEDALS = ["🥇", "🥈", "🥉"];
 
     return (
         <div className="fade-in">
-            <div style={{ marginBottom: 20 }}>
-                <h2 style={{ color: "#0F172A", margin: 0, fontSize: 20, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
-                    <Award size={22} color="#F59E0B" /> Leaderboard
-                </h2>
-                <p style={{ color: "#64748B", margin: "4px 0 0", fontSize: 13 }}>Composite Score = Tempo (35%) + Task (25%) + Collab (25%) + AI (15%)</p>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+                <div>
+                    <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--text-primary)", letterSpacing: -0.3 }}>🏆 Leaderboard</h1>
+                    <p style={{ color: "var(--text-tertiary)", fontSize: 12, marginTop: 4 }}>Composite = Tempo (35%) + Task (25%) + Collab (25%) + AI (15%)</p>
+                </div>
+                <div style={{ display: "flex", gap: 4 }}>
+                    {[{ v: "weekly", l: "Tuần" }, { v: "monthly", l: "Tháng" }].map(x => (
+                        <button key={x.v} onClick={() => setPeriod(x.v)} style={{
+                            padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                            background: period === x.v ? "var(--accent-bg)" : "var(--bg-tertiary)",
+                            color: period === x.v ? "var(--accent)" : "var(--text-tertiary)",
+                            border: period === x.v ? "1px solid var(--border-active)" : "1px solid var(--border-primary)",
+                        }}>{x.l}</button>
+                    ))}
+                </div>
             </div>
 
             {/* Podium */}
-            {leaderboard.length >= 3 && (
-                <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", gap: 12, marginBottom: 24, padding: "0 40px" }}>
-                    {[1, 0, 2].map(idx => {
-                        const entry = leaderboard[idx];
-                        if (!entry) return null;
-                        const isFirst = idx === 0;
+            {top3.length >= 3 && (
+                <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", gap: 16, marginBottom: 32, padding: "20px 0" }}>
+                    {PODIUM_ORDER.map((idx, vi) => {
+                        const s = top3[idx]; if (!s) return null;
                         return (
-                            <div key={entry.user?.id || idx} style={{
-                                textAlign: "center", flex: 1, maxWidth: 200,
-                                background: "#FFFFFF", borderRadius: 16, border: `2px solid ${PODIUM_COLORS[idx]}30`,
-                                padding: isFirst ? "20px 16px" : "16px", transform: isFirst ? "scale(1.05)" : "none",
-                                boxShadow: isFirst ? `0 8px 24px ${PODIUM_COLORS[idx]}20` : "0 2px 8px rgba(0,0,0,0.04)",
-                            }}>
-                                <div style={{ fontSize: 32 }}>{PODIUM_MEDALS[idx]}</div>
-                                <div style={{ fontSize: 28, margin: "6px 0" }}>{entry.user?.avatar}</div>
-                                <div style={{ fontSize: 14, fontWeight: 700, color: "#0F172A" }}>{entry.user?.display_name}</div>
-                                <div style={{ fontSize: 10, color: "#94A3B8" }}>@{entry.user?.username}</div>
-                                <div style={{ fontSize: 22, fontWeight: 800, color: PODIUM_COLORS[idx], marginTop: 6 }}>{Number(entry.composite).toFixed(0)}</div>
-                                <div style={{ fontSize: 10, color: "#64748B" }}>Composite Score</div>
-                                <div style={{ fontSize: 11, marginTop: 4 }}>{getTempoLabel(entry.tempo)}</div>
-                                {entry.streak > 0 && <div style={{ fontSize: 10, color: "#F59E0B", marginTop: 2 }}>🔥 {entry.streak} ngày streak</div>}
+                            <div key={idx} className="fade-in-up" style={{ textAlign: "center", animationDelay: `${vi * 120}ms`, animationFillMode: "backwards", width: 140 }}>
+                                <div style={{ position: "relative", marginBottom: 8 }}>
+                                    <div style={{
+                                        width: 56, height: 56, borderRadius: 16, margin: "0 auto",
+                                        background: "var(--gradient-brand)", display: "flex", alignItems: "center", justifyContent: "center",
+                                        fontSize: 24, boxShadow: `0 4px 20px ${PODIUM_COLORS[idx]}40`,
+                                        border: `2px solid ${PODIUM_COLORS[idx]}60`,
+                                    }}>{s.user?.avatar}</div>
+                                    <div style={{ position: "absolute", top: -6, right: "calc(50% - 28px)", fontSize: 20 }}>{MEDALS[idx]}</div>
+                                </div>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 2 }}>{s.user?.display_name}</div>
+                                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>@{s.user?.username}</div>
+                                <div style={{
+                                    height: PODIUM_HEIGHTS[idx], borderRadius: "12px 12px 0 0",
+                                    background: PODIUM_BG[idx], display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                                }}>
+                                    <div style={{ fontSize: 24, fontWeight: 900, color: idx === 0 ? "#92400E" : "#1E293B" }}>{Number(s.composite).toFixed(0)}</div>
+                                    <div style={{ fontSize: 9, fontWeight: 600, color: "#64748B", textTransform: "uppercase", letterSpacing: 1 }}>pts</div>
+                                </div>
                             </div>
                         );
                     })}
                 </div>
             )}
 
-            {/* Full table */}
-            <div style={{ background: "#FFFFFF", borderRadius: 12, border: "1px solid #E2E8F0", overflow: "hidden" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            {/* Table */}
+            <div style={{ background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-primary)", overflow: "hidden", boxShadow: "var(--shadow-xs)" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
-                        <tr style={{ background: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}>
-                            <th style={{ padding: "10px 16px", textAlign: "left", fontWeight: 600, color: "#64748B", fontSize: 11 }}>#</th>
-                            <th style={{ padding: "10px", textAlign: "left", fontWeight: 600, color: "#64748B", fontSize: 11 }}>Thành viên</th>
-                            <th style={{ padding: "10px", textAlign: "center", fontWeight: 600, color: "#64748B", fontSize: 11 }}>Tempo</th>
-                            <th style={{ padding: "10px", textAlign: "center", fontWeight: 600, color: "#64748B", fontSize: 11 }}>Task</th>
-                            <th style={{ padding: "10px", textAlign: "center", fontWeight: 600, color: "#64748B", fontSize: 11 }}>Collab</th>
-                            <th style={{ padding: "10px", textAlign: "center", fontWeight: 600, color: "#64748B", fontSize: 11 }}>AI</th>
-                            <th style={{ padding: "10px", textAlign: "center", fontWeight: 600, color: "#64748B", fontSize: 11 }}>Composite</th>
-                            <th style={{ padding: "10px", textAlign: "center", fontWeight: 600, color: "#64748B", fontSize: 11 }}>Streak</th>
+                        <tr style={{ background: "var(--bg-tertiary)" }}>
+                            {["#", "Thành viên", "Tempo", "Task", "Collab", "AI", "Composite", "Streak"].map(h => (
+                                <th key={h} style={{ padding: "12px 14px", textAlign: h === "Thành viên" ? "left" : "center", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: 0.5 }}>{h}</th>
+                            ))}
                         </tr>
                     </thead>
                     <tbody>
-                        {leaderboard.map(entry => (
-                            <tr key={entry.user?.id} style={{ borderBottom: "1px solid #F1F5F9" }}>
-                                <td style={{ padding: "10px 16px", fontWeight: 700, color: "#0F172A" }}>{entry.rank <= 3 ? PODIUM_MEDALS[entry.rank - 1] : entry.rank}</td>
-                                <td style={{ padding: "10px", display: "flex", alignItems: "center", gap: 8 }}>
-                                    <span style={{ fontSize: 20 }}>{entry.user?.avatar}</span>
-                                    <div>
-                                        <div style={{ fontWeight: 600, color: "#0F172A" }}>{entry.user?.display_name}</div>
-                                        <div style={{ fontSize: 10, color: "#94A3B8" }}>@{entry.user?.username}</div>
-                                    </div>
-                                </td>
-                                <td style={{ padding: "10px", textAlign: "center" }}><ScoreBadge value={entry.tempo} /></td>
-                                <td style={{ padding: "10px", textAlign: "center" }}><ScoreBadge value={entry.task_completion} /></td>
-                                <td style={{ padding: "10px", textAlign: "center" }}><ScoreBadge value={entry.collaboration} /></td>
-                                <td style={{ padding: "10px", textAlign: "center" }}><ScoreBadge value={entry.ai_adoption} /></td>
-                                <td style={{ padding: "10px", textAlign: "center", fontWeight: 700, color: "#0F172A", fontSize: 15 }}>{Number(entry.composite).toFixed(0)}</td>
-                                <td style={{ padding: "10px", textAlign: "center", color: entry.streak > 0 ? "#F59E0B" : "#94A3B8", fontWeight: 600 }}>
-                                    {entry.streak > 0 ? `🔥 ${entry.streak}` : "—"}
-                                </td>
-                            </tr>
-                        ))}
+                        {scores.map((s, i) => {
+                            const isMe = s.user_id === currentUser?.id || s.user?.id === currentUser?.id;
+                            return (
+                                <tr key={i} style={{ borderBottom: "1px solid var(--border-primary)", background: isMe ? "var(--accent-bg)" : "transparent" }}>
+                                    <td style={{ padding: "12px 14px", textAlign: "center", fontWeight: 700, fontSize: 13, color: i < 3 ? "var(--amber)" : "var(--text-muted)" }}>
+                                        {i < 3 ? MEDALS[i] : i + 1}
+                                    </td>
+                                    <td style={{ padding: "12px 14px" }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                            <span style={{ fontSize: 20 }}>{s.user?.avatar}</span>
+                                            <div>
+                                                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{s.user?.display_name} {isMe && <span style={{ fontSize: 10, color: "var(--accent)", fontWeight: 500 }}>(bạn)</span>}</div>
+                                                <div style={{ fontSize: 10, color: "var(--text-muted)" }}>@{s.user?.username}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td style={{ ...cellStyle }}><MiniBar v={s.tempo} /></td>
+                                    <td style={cellStyle}><MiniBar v={s.task_completion} /></td>
+                                    <td style={cellStyle}><MiniBar v={s.collaboration} /></td>
+                                    <td style={cellStyle}><MiniBar v={s.ai_adoption} /></td>
+                                    <td style={{ ...cellStyle, fontSize: 16, fontWeight: 800 }}>{Number(s.composite).toFixed(0)}</td>
+                                    <td style={{ ...cellStyle, fontSize: 13, fontWeight: 600 }}>
+                                        {s.streak > 0 ? <span style={{ color: "var(--amber)" }}>🔥 {s.streak}</span> : <span style={{ color: "var(--text-muted)" }}>—</span>}
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>
-
-            {leaderboard.length === 0 && (
-                <div style={{ textAlign: "center", padding: 40, color: "#94A3B8" }}>
-                    <Trophy size={48} strokeWidth={1} style={{ opacity: 0.3 }} />
-                    <div style={{ fontSize: 14, marginTop: 12 }}>Chưa có dữ liệu leaderboard</div>
-                </div>
-            )}
         </div>
     );
 }
 
-function ScoreBadge({ value }) {
-    const v = Number(value) || 0;
-    const color = v >= 80 ? "#10B981" : v >= 60 ? "#3B82F6" : v >= 40 ? "#F59E0B" : v >= 20 ? "#FC7B25" : "#94A3B8";
+function MiniBar({ v }) {
+    const val = Number(v || 0);
+    const c = val >= 70 ? "var(--green)" : val >= 50 ? "var(--blue)" : val >= 30 ? "var(--amber)" : "var(--text-muted)";
     return (
-        <span style={{ fontSize: 12, fontWeight: 600, color, background: `${color}12`, padding: "2px 8px", borderRadius: 8 }}>{v}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
+            <div style={{ width: 36, height: 4, background: "var(--bg-tertiary)", borderRadius: 2, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${val}%`, background: c, borderRadius: 2 }} />
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 600, color: c, minWidth: 20, textAlign: "right" }}>{val}</span>
+        </div>
     );
 }
+
+const cellStyle = { padding: "12px 14px", textAlign: "center", color: "var(--text-primary)" };

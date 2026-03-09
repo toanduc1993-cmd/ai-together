@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useUser } from "@/lib/UserContext";
-import { Users, Plus, Edit2, Trash2, Shield } from "lucide-react";
+import { Plus, UserPlus, Pencil, Trash2 } from "lucide-react";
 import Modal from "@/components/Modal";
 import Input from "@/components/Input";
 import Select from "@/components/Select";
@@ -9,99 +9,88 @@ import Select from "@/components/Select";
 export default function TeamPage() {
     const { currentUser, isChairman } = useUser();
     const [users, setUsers] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [showAdd, setShowAdd] = useState(false);
-    const [showEdit, setShowEdit] = useState(null);
-    const [form, setForm] = useState({});
-    const [error, setError] = useState("");
+    const [editUser, setEditUser] = useState(null);
+    const [form, setForm] = useState({ username: "", password: "123456", display_name: "", email: "", role: "developer" });
+    const [loading, setLoading] = useState(true);
 
-    const reload = async () => {
-        const res = await fetch("/api/users");
-        const data = await res.json();
-        setUsers(Array.isArray(data) ? data : []);
-        setLoading(false);
+    const load = () => fetch("/api/users").then(r => r.json()).then(u => { setUsers(Array.isArray(u) ? u : []); setLoading(false); });
+    useEffect(() => { load(); }, []);
+
+    const save = async () => {
+        const method = editUser ? "PUT" : "POST";
+        const body = editUser ? { id: editUser.id, display_name: form.display_name, email: form.email, role: form.role } : form;
+        await fetch("/api/users", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        setShowAdd(false); setEditUser(null); setForm({ username: "", password: "123456", display_name: "", email: "", role: "developer" }); load();
     };
 
-    useEffect(() => { reload(); }, []);
+    const del = async (id) => {
+        if (!confirm("Xoá user này?")) return;
+        await fetch(`/api/users?id=${id}`, { method: "DELETE" }); load();
+    };
+
+    const openEdit = (u) => {
+        setEditUser(u); setForm({ display_name: u.display_name, email: u.email, role: u.role }); setShowAdd(true);
+    };
 
     const ROLE_CONFIG = {
-        chairman: { color: "#F59E0B", bg: "#FFFBEB", label: "Chairman" },
-        project_lead: { color: "#8B5CF6", bg: "#F5F3FF", label: "Project Lead" },
-        developer: { color: "#3B82F6", bg: "#EFF6FF", label: "Developer" },
-        admin: { color: "#EF4444", bg: "#FEF2F2", label: "Admin" },
+        chairman: { color: "var(--amber)", bg: "var(--amber-bg)", label: "Chairman" },
+        project_lead: { color: "var(--accent)", bg: "var(--accent-bg)", label: "Project Lead" },
+        developer: { color: "var(--green)", bg: "var(--green-bg)", label: "Developer" },
+        admin: { color: "var(--red)", bg: "var(--red-bg)", label: "Admin" },
     };
 
-    const addUser = async () => {
-        if (!form.username?.trim() || !form.display_name?.trim()) { setError("Username và tên hiển thị bắt buộc"); return; }
-        setError("");
-        const res = await fetch("/api/users", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(form),
-        });
-        if (!res.ok) { setError((await res.json()).error); return; }
-        setShowAdd(false); setForm({}); reload();
-    };
-
-    const editUser = async () => {
-        setError("");
-        const res = await fetch("/api/users", {
-            method: "PUT", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: showEdit, ...form }),
-        });
-        if (!res.ok) { setError((await res.json()).error); return; }
-        setShowEdit(null); setForm({}); reload();
-    };
-
-    const delUser = async (id) => {
-        if (!confirm("Bạn chắc chắn muốn xoá?")) return;
-        await fetch(`/api/users?id=${id}`, { method: "DELETE" });
-        reload();
-    };
-
-    if (loading) return <div style={{ textAlign: "center", padding: 40, color: "#94A3B8" }}>Đang tải...</div>;
+    if (loading) return <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Đang tải...</div>;
 
     return (
         <div className="fade-in">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
                 <div>
-                    <h2 style={{ color: "#0F172A", margin: 0, fontSize: 20, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
-                        <Users size={22} color="#10B981" /> Quản lý Team
-                    </h2>
-                    <p style={{ color: "#64748B", margin: "4px 0 0", fontSize: 13 }}>{users.length} thành viên</p>
+                    <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--text-primary)", letterSpacing: -0.3 }}>👥 Team</h1>
+                    <p style={{ color: "var(--text-tertiary)", fontSize: 13, marginTop: 4 }}>{users.length} thành viên</p>
                 </div>
                 {isChairman && (
-                    <button onClick={() => { setForm({ role: "developer" }); setShowAdd(true); setError(""); }}
-                        style={{ background: "linear-gradient(135deg, #10B981, #059669)", color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", cursor: "pointer", fontWeight: 600, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
-                        <Plus size={16} /> Thêm thành viên
+                    <button onClick={() => { setEditUser(null); setForm({ username: "", password: "123456", display_name: "", email: "", role: "developer" }); setShowAdd(true); }}
+                        className="btn-primary" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <UserPlus size={15} /> Thêm thành viên
                     </button>
                 )}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
-                {users.map(u => {
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+                {users.map((u, i) => {
                     const rc = ROLE_CONFIG[u.role] || ROLE_CONFIG.developer;
                     return (
-                        <div key={u.id} style={{ background: "#FFFFFF", borderRadius: 12, border: "1px solid #E2E8F0", padding: 16, transition: "all 0.2s" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                                <span style={{ fontSize: 28 }}>{u.avatar}</span>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ fontSize: 14, fontWeight: 700, color: "#0F172A" }}>{u.display_name}</div>
-                                    <div style={{ fontSize: 11, color: "#94A3B8" }}>@{u.username}</div>
+                        <div key={u.id} className="glass-card fade-in-up" style={{ padding: "20px 22px", animationDelay: `${i * 50}ms`, animationFillMode: "backwards" }}>
+                            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                    <div style={{
+                                        width: 44, height: 44, borderRadius: 12, background: "var(--gradient-brand)",
+                                        display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20,
+                                        boxShadow: "0 2px 12px rgba(99, 102, 241, 0.2)",
+                                    }}>{u.avatar}</div>
+                                    <div>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>{u.display_name}</div>
+                                        <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 500 }}>@{u.username}</div>
+                                    </div>
                                 </div>
-                                <span style={{ fontSize: 10, fontWeight: 600, color: rc.color, background: rc.bg, padding: "3px 8px", borderRadius: 8, border: `1px solid ${rc.color}20` }}>{rc.label}</span>
+                                <span style={{ fontSize: 10, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: rc.bg, color: rc.color }}>{rc.label}</span>
                             </div>
-                            {u.email && <div style={{ fontSize: 11, color: "#64748B", marginBottom: 4 }}>📧 {u.email}</div>}
-                            {u.bio && <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 8 }}>{u.bio}</div>}
-                            {isChairman && u.role !== "chairman" && (
-                                <div style={{ display: "flex", gap: 6 }}>
-                                    <button onClick={() => { setShowEdit(u.id); setForm({ display_name: u.display_name, role: u.role, email: u.email, bio: u.bio, avatar: u.avatar }); setError(""); }}
-                                        style={{ flex: 1, background: "#F1F5F9", border: "1px solid #E2E8F0", borderRadius: 6, padding: "5px", cursor: "pointer", fontSize: 11, color: "#64748B", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
-                                        <Edit2 size={11} /> Sửa
+
+                            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                                <span style={{ fontSize: 14 }}>📧</span> {u.email}
+                            </div>
+                            {u.bio && <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 8 }}>{u.bio}</div>}
+
+                            {isChairman && (
+                                <div style={{ display: "flex", gap: 6, marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border-primary)" }}>
+                                    <button onClick={() => openEdit(u)} className="btn-ghost" style={{ flex: 1, padding: "7px", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, fontSize: 12 }}>
+                                        <Pencil size={13} /> Sửa
                                     </button>
-                                    <button onClick={() => delUser(u.id)}
-                                        style={{ background: "#FEF2F2", border: "1px solid #FCA5A520", borderRadius: 6, padding: "5px 8px", cursor: "pointer", color: "#EF4444", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                        <Trash2 size={11} />
-                                    </button>
+                                    <button onClick={() => del(u.id)} style={{
+                                        background: "var(--red-bg)", color: "var(--red)", border: "none",
+                                        borderRadius: "var(--radius-sm)", padding: "7px 12px", cursor: "pointer", display: "flex", alignItems: "center",
+                                    }}><Trash2 size={13} /></button>
                                 </div>
                             )}
                         </div>
@@ -110,26 +99,16 @@ export default function TeamPage() {
             </div>
 
             {showAdd && (
-                <Modal title="👤 Thêm thành viên" onClose={() => setShowAdd(false)}>
-                    {error && <div style={{ color: "#DC2626", fontSize: 12, marginBottom: 8 }}>⚠️ {error}</div>}
-                    <Input label="Username *" value={form.username || ""} onChange={v => setForm(f => ({ ...f, username: v }))} />
-                    <Input label="Tên hiển thị *" value={form.display_name || ""} onChange={v => setForm(f => ({ ...f, display_name: v }))} />
-                    <Input label="Email" value={form.email || ""} onChange={v => setForm(f => ({ ...f, email: v }))} />
-                    <Select label="Vai trò" value={form.role || "developer"} onChange={v => setForm(f => ({ ...f, role: v }))}
-                        options={[{ value: "project_lead", label: "Project Lead" }, { value: "developer", label: "Developer" }, { value: "admin", label: "Admin" }]} />
-                    <button onClick={addUser} style={{ width: "100%", background: "linear-gradient(135deg, #10B981, #059669)", color: "#fff", border: "none", borderRadius: 8, padding: 10, cursor: "pointer", fontWeight: 600, fontSize: 13, marginTop: 8 }}>Thêm</button>
-                </Modal>
-            )}
-
-            {showEdit && (
-                <Modal title="✏️ Chỉnh sửa thành viên" onClose={() => setShowEdit(null)}>
-                    {error && <div style={{ color: "#DC2626", fontSize: 12, marginBottom: 8 }}>⚠️ {error}</div>}
-                    <Input label="Tên hiển thị" value={form.display_name || ""} onChange={v => setForm(f => ({ ...f, display_name: v }))} />
-                    <Input label="Email" value={form.email || ""} onChange={v => setForm(f => ({ ...f, email: v }))} />
-                    <Select label="Vai trò" value={form.role || "developer"} onChange={v => setForm(f => ({ ...f, role: v }))}
-                        options={[{ value: "project_lead", label: "Project Lead" }, { value: "developer", label: "Developer" }]} />
-                    <Input label="Bio" value={form.bio || ""} onChange={v => setForm(f => ({ ...f, bio: v }))} />
-                    <button onClick={editUser} style={{ width: "100%", background: "linear-gradient(135deg, #3B82F6, #1D4ED8)", color: "#fff", border: "none", borderRadius: 8, padding: 10, cursor: "pointer", fontWeight: 600, fontSize: 13, marginTop: 8 }}>Lưu</button>
+                <Modal title={editUser ? "✏️ Sửa thành viên" : "➕ Thêm thành viên"} onClose={() => { setShowAdd(false); setEditUser(null); }}>
+                    {!editUser && <Input label="Username" placeholder="Nhập username..." value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} />}
+                    <Input label="Tên hiển thị" placeholder="Nhập tên..." value={form.display_name} onChange={e => setForm({ ...form, display_name: e.target.value })} />
+                    <Input label="Email" placeholder="email@libetech.vn" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+                    <Select label="Vai trò" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
+                        <option value="developer">Developer</option>
+                        <option value="project_lead">Project Lead</option>
+                        <option value="chairman">Chairman</option>
+                    </Select>
+                    <button onClick={save} className="btn-primary" style={{ width: "100%", marginTop: 8 }}>{editUser ? "Cập nhật" : "Thêm"}</button>
                 </Modal>
             )}
         </div>

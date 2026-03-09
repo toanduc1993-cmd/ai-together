@@ -1,20 +1,17 @@
-"use client";
-export default function Select({ label, value, onChange, options = [], placeholder }) {
+export default function Select({ label, children, ...props }) {
     return (
-        <div style={{ marginBottom: 12 }}>
-            {label && <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 4 }}>{label}</label>}
-            <select value={value} onChange={e => onChange(e.target.value)}
-                style={{
-                    width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #D1D5DB",
-                    fontSize: 13, color: value ? "#0F172A" : "#9CA3AF", background: "#FFFFFF",
-                    outline: "none", transition: "border-color 0.2s", boxSizing: "border-box", cursor: "pointer",
-                }}
-                onFocus={e => e.target.style.borderColor = "#8B5CF6"}
-                onBlur={e => e.target.style.borderColor = "#D1D5DB"}>
-                <option value="">{placeholder || "Chọn..."}</option>
-                {options.map(o => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
+        <div style={{ marginBottom: 14 }}>
+            {label && <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6, letterSpacing: 0.1 }}>{label}</label>}
+            <select {...props} style={{
+                width: "100%", padding: "10px 14px", borderRadius: "var(--radius-sm)",
+                border: "1.5px solid var(--border-primary)", background: "var(--bg-primary)",
+                color: "var(--text-primary)", fontSize: 13, outline: "none", cursor: "pointer",
+                transition: "all 0.2s", appearance: "none",
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238C95A8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+                backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center",
+                ...props.style,
+            }}>
+                {children}
             </select>
         </div>
     );

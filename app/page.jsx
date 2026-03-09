@@ -1,16 +1,14 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useUser } from "@/lib/UserContext";
-import { FolderKanban, CheckCircle2, Zap, Award, Clock, AlertTriangle, ListChecks, ArrowRight } from "lucide-react";
+import { FolderKanban, ArrowRight, TrendingUp, Clock, Activity, Flame } from "lucide-react";
 import Link from "next/link";
 
 export default function DashboardPage() {
-    const { currentUser, isChairman, isProjectLead, unreadCount } = useUser();
+    const { currentUser, isChairman, unreadCount } = useUser();
     const [projects, setProjects] = useState([]);
     const [activities, setActivities] = useState([]);
-    const [modules, setModules] = useState([]);
     const [scores, setScores] = useState([]);
-    const [myTasks, setMyTasks] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -27,154 +25,118 @@ export default function DashboardPage() {
         }).catch(() => setLoading(false));
     }, [currentUser?.id]);
 
-    // Recalculate scores on load
     useEffect(() => { fetch("/api/scores/calculate", { method: "POST" }).catch(() => { }); }, []);
 
-    if (loading) return <div style={{ textAlign: "center", padding: 40, color: "var(--text-tertiary)" }}>Đang tải...</div>;
+    if (loading) return <Skeleton />;
 
-    const activeProjects = projects.filter(p => p.status === "active");
-    const todayActivities = activities.filter(a => new Date(a.created_at).toDateString() === new Date().toDateString());
-    const myScore = scores.find(s => s.user_id === currentUser?.id || s.user?.id === currentUser?.id);
-
-    const ROLE_GREETING = {
-        chairman: "Portfolio tổng quan",
-        project_lead: "Tiến độ team của bạn",
-        developer: "Dashboard cá nhân",
-    };
+    const activeP = projects.filter(p => p.status === "active");
+    const todayAct = activities.filter(a => new Date(a.created_at).toDateString() === new Date().toDateString());
+    const myScore = scores.find(s => s.user_id === currentUser?.id);
 
     return (
         <div className="fade-in">
-            {/* Greeting */}
-            <div style={{ marginBottom: 20 }}>
-                <h2 style={{ color: "var(--text-primary)", margin: 0, fontSize: 22, fontWeight: 800 }}>
+            {/* Hero */}
+            <div style={{ marginBottom: 28 }}>
+                <h1 style={{ fontSize: 26, fontWeight: 800, color: "var(--text-primary)", letterSpacing: -0.5, lineHeight: 1.2 }}>
                     Xin chào, {currentUser?.display_name} 👋
-                </h2>
-                <p style={{ color: "var(--text-secondary)", margin: "4px 0 0", fontSize: 13 }}>
-                    {currentUser?.role ? ROLE_GREETING[currentUser.role] || "Dashboard" : "Dashboard"} — {new Date().toLocaleDateString("vi-VN", { weekday: "long", day: "numeric", month: "long" })}
+                </h1>
+                <p style={{ color: "var(--text-tertiary)", fontSize: 13, marginTop: 6 }}>
+                    {new Date().toLocaleDateString("vi-VN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
                 </p>
             </div>
 
-            {/* Stat cards */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12, marginBottom: 20 }}>
-                <StatCard icon="📁" label="Projects" value={projects.length} color="#3B82F6" />
-                <StatCard icon="✅" label="Active" value={activeProjects.length} color="#10B981" />
-                <StatCard icon="⚡" label="Activities hôm nay" value={todayActivities.length} color="#F59E0B" />
-                <StatCard icon="🔔" label="Chưa đọc" value={unreadCount || 0} color="#EF4444" />
-                {myScore && <StatCard icon="🏆" label="Composite Score" value={Number(myScore.composite || 0).toFixed(0)} color="#8B5CF6" />}
-                {myScore && <StatCard icon="🔥" label="Streak" value={`${myScore.streak || 0} ngày`} color="#F97316" />}
+            {/* Stats */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12, marginBottom: 24 }}>
+                <Stat icon={<FolderKanban size={18} />} label="Projects" value={projects.length} color="var(--accent)" />
+                <Stat icon={<Activity size={18} />} label="Active" value={activeP.length} color="var(--green)" />
+                <Stat icon={<TrendingUp size={18} />} label="Hôm nay" value={todayAct.length} color="var(--blue)" />
+                <Stat icon={<Clock size={18} />} label="Chưa đọc" value={unreadCount || 0} color="var(--red)" />
+                {myScore && <Stat icon="🏆" label="Composite" value={Number(myScore.composite || 0).toFixed(0)} color="var(--accent)" />}
+                {myScore && <Stat icon={<Flame size={18} />} label="Streak" value={`${myScore.streak || 0}d`} color="var(--amber)" />}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                {/* Left column */}
+            <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 16 }} className="grid-2">
                 <div>
-                    {/* Chairman: Pending Reviews */}
-                    {isChairman && (
-                        <Card title="👀 Modules chờ Review" icon={<AlertTriangle size={16} color="#F59E0B" />}>
-                            {projects.length === 0 ? (
-                                <div style={emptyStyle}>Không có module nào đang chờ review</div>
-                            ) : (
-                                <div style={{ fontSize: 12, color: "var(--text-tertiary)", padding: 8 }}>
-                                    Xem chi tiết tại trang <Link href="/projects" style={{ color: "#8B5CF6", fontWeight: 600 }}>Projects</Link>
-                                </div>
-                            )}
-                        </Card>
-                    )}
-
-                    {/* Projects overview */}
-                    <Card title="📁 Projects" icon={<FolderKanban size={16} color="#8B5CF6" />}
-                        action={<Link href="/projects" style={{ color: "#8B5CF6", fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>Xem tất cả <ArrowRight size={12} /></Link>}>
-                        {projects.length === 0 ? (
-                            <div style={emptyStyle}>Chưa có project nào. {isChairman && "Tạo project đầu tiên!"}</div>
-                        ) : projects.slice(0, 5).map(p => (
-                            <Link key={p.id} href={`/projects/${p.id}`} style={{
-                                display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border-primary)", marginBottom: 4, textDecoration: "none",
+                    {/* Projects */}
+                    <Panel title="Projects" action={<Link href="/projects" style={{ color: "var(--accent)", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>Tất cả <ArrowRight size={13} /></Link>}>
+                        {projects.length === 0 ? <Empty text="Chưa có project" /> : projects.slice(0, 5).map(p => (
+                            <Link key={p.id} href={`/projects/${p.id}`} className="glass-card" style={{
+                                display: "flex", justifyContent: "space-between", alignItems: "center",
+                                padding: "12px 14px", marginBottom: 6, textDecoration: "none",
                             }}>
                                 <div>
                                     <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{p.title}</div>
-                                    <div style={{ fontSize: 10, color: "var(--text-tertiary)" }}>Lead: {p.lead?.display_name || "—"}</div>
+                                    <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 2 }}>Lead: {p.lead?.display_name || "—"}</div>
                                 </div>
-                                <span style={{
-                                    fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 8,
-                                    color: p.status === "active" ? "#10B981" : "#94A3B8",
-                                    background: p.status === "active" ? "#10B98112" : "#F1F5F9",
-                                }}>{p.status}</span>
+                                <StatusBadge status={p.status} />
                             </Link>
                         ))}
-                    </Card>
+                    </Panel>
 
-                    {/* Developer: My Personal Tempo */}
                     {currentUser?.role === "developer" && myScore && (
-                        <Card title="📊 Điểm số của tôi">
+                        <Panel title="Điểm cá nhân">
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                                <ScoreMini label="Tempo" value={myScore.tempo || 50} maxLabel={getTempoLabel(myScore.tempo)} />
-                                <ScoreMini label="Task Completion" value={myScore.task_completion || 0} />
-                                <ScoreMini label="Collaboration" value={myScore.collaboration || 0} />
-                                <ScoreMini label="AI Adoption" value={myScore.ai_adoption || 0} />
+                                <ScoreBar label="Tempo" value={myScore.tempo || 50} />
+                                <ScoreBar label="Task" value={myScore.task_completion || 0} />
+                                <ScoreBar label="Collab" value={myScore.collaboration || 0} />
+                                <ScoreBar label="AI" value={myScore.ai_adoption || 0} />
                             </div>
-                        </Card>
+                        </Panel>
                     )}
                 </div>
 
-                {/* Right column */}
                 <div>
-                    {/* Leaderboard mini */}
-                    <Card title="🏆 Leaderboard"
-                        action={<Link href="/leaderboard" style={{ color: "#F59E0B", fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>Chi tiết <ArrowRight size={12} /></Link>}>
-                        {scores.length === 0 ? (
-                            <div style={emptyStyle}>Chưa có dữ liệu leaderboard</div>
-                        ) : scores.slice(0, 5).map((s, idx) => (
-                            <div key={s.user?.id || idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, marginBottom: 2 }}>
-                                <span style={{ fontSize: 12, fontWeight: 700, color: idx < 3 ? "#F59E0B" : "var(--text-tertiary)", width: 20, textAlign: "center" }}>
-                                    {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : idx + 1}
+                    <Panel title="Leaderboard" action={<Link href="/leaderboard" style={{ color: "var(--amber)", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>Chi tiết <ArrowRight size={13} /></Link>}>
+                        {scores.length === 0 ? <Empty text="Chưa có dữ liệu" /> : scores.slice(0, 5).map((s, i) => (
+                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: i < 4 ? "1px solid var(--border-primary)" : "none" }}>
+                                <span style={{ width: 22, textAlign: "center", fontSize: 13, fontWeight: 700, color: i < 3 ? "var(--amber)" : "var(--text-muted)" }}>
+                                    {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}
                                 </span>
-                                <span style={{ fontSize: 16 }}>{s.user?.avatar}</span>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{s.user?.display_name}</div>
-                                </div>
-                                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>{Number(s.composite).toFixed(0)}</span>
+                                <span style={{ fontSize: 18 }}>{s.user?.avatar}</span>
+                                <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>{s.user?.display_name}</span>
+                                <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>{Number(s.composite).toFixed(0)}</span>
                             </div>
                         ))}
-                    </Card>
+                    </Panel>
 
-                    {/* Activity feed */}
-                    <Card title="📈 Hoạt động gần đây">
-                        {activities.length === 0 ? (
-                            <div style={emptyStyle}>Chưa có hoạt động</div>
-                        ) : activities.slice(0, 8).map(a => (
-                            <div key={a.id} style={{ display: "flex", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--bg-tertiary)" }}>
-                                <span style={{ fontSize: 16, flexShrink: 0 }}>{a.user?.avatar || "🔵"}</span>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ fontSize: 11, color: "var(--text-primary)" }}>
-                                        <strong>{a.user?.display_name}</strong> {a.detail || a.action_type}
+                    <Panel title="Hoạt động">
+                        {activities.length === 0 ? <Empty text="Chưa có hoạt động" /> : activities.slice(0, 6).map(a => (
+                            <div key={a.id} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--border-primary)" }}>
+                                <span style={{ fontSize: 18, flexShrink: 0, lineHeight: 1 }}>{a.user?.avatar || "🔵"}</span>
+                                <div>
+                                    <div style={{ fontSize: 12, color: "var(--text-primary)", lineHeight: 1.4 }}>
+                                        <strong>{a.user?.display_name}</strong> <span style={{ color: "var(--text-tertiary)" }}>{a.detail || a.action_type}</span>
                                     </div>
-                                    <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 2 }}>{timeAgo(a.created_at)}</div>
+                                    <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 3 }}>{timeAgo(a.created_at)}</div>
                                 </div>
                             </div>
                         ))}
-                    </Card>
+                    </Panel>
                 </div>
             </div>
         </div>
     );
 }
 
-function StatCard({ icon, label, value, color }) {
+function Stat({ icon, label, value, color }) {
     return (
-        <div style={{ background: "var(--bg-primary)", borderRadius: 12, padding: "14px 16px", border: "1px solid var(--border-primary)", display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 20 }}>{icon}</span>
+        <div className="glass-card" style={{ padding: "16px 18px", display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: `${color}12`, color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+                {typeof icon === "string" ? icon : icon}
+            </div>
             <div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: "var(--text-primary)" }}>{value}</div>
-                <div style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{label}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "var(--text-primary)", lineHeight: 1 }}>{value}</div>
+                <div style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 500, marginTop: 2 }}>{label}</div>
             </div>
         </div>
     );
 }
 
-function Card({ title, icon, action, children }) {
+function Panel({ title, action, children }) {
     return (
-        <div style={{ background: "var(--bg-primary)", borderRadius: 12, border: "1px solid var(--border-primary)", padding: 16, marginBottom: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 6 }}>{icon} {title}</h3>
+        <div style={{ background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-primary)", padding: "18px 20px", marginBottom: 14, boxShadow: "var(--shadow-xs)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>📋 {title}</h3>
                 {action}
             </div>
             {children}
@@ -182,35 +144,30 @@ function Card({ title, icon, action, children }) {
     );
 }
 
-function ScoreMini({ label, value, maxLabel }) {
-    const color = value >= 80 ? "#10B981" : value >= 60 ? "#3B82F6" : value >= 40 ? "#F59E0B" : "#94A3B8";
+function StatusBadge({ status }) {
+    const map = { active: { bg: "var(--green-bg)", color: "var(--green)", label: "Active" }, completed: { bg: "var(--blue-bg)", color: "var(--blue)", label: "Done" }, planning: { bg: "var(--amber-bg)", color: "var(--amber)", label: "Planning" } };
+    const s = map[status] || map.planning;
+    return <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: s.bg, color: s.color }}>{s.label}</span>;
+}
+
+function ScoreBar({ label, value }) {
+    const v = Number(value || 0);
+    const c = v >= 70 ? "var(--green)" : v >= 50 ? "var(--blue)" : v >= 30 ? "var(--amber)" : "var(--text-muted)";
     return (
-        <div style={{ background: "var(--bg-secondary)", borderRadius: 8, padding: "8px 10px" }}>
-            <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginBottom: 4 }}>{label}</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <div style={{ flex: 1, height: 6, background: "var(--bg-tertiary)", borderRadius: 3, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${value}%`, background: color, borderRadius: 3, transition: "width 0.5s" }} />
-                </div>
-                <span style={{ fontSize: 12, fontWeight: 700, color }}>{value}</span>
+        <div style={{ background: "var(--bg-tertiary)", borderRadius: 10, padding: "10px 12px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 500 }}>{label}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: c }}>{v}</span>
             </div>
-            {maxLabel && <div style={{ fontSize: 9, color, marginTop: 2 }}>{maxLabel}</div>}
+            <div style={{ height: 5, background: "var(--bg-secondary)", borderRadius: 4, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${v}%`, background: c, borderRadius: 4, transition: "width 0.6s cubic-bezier(0.16, 1, 0.3, 1)" }} />
+            </div>
         </div>
     );
 }
 
-const emptyStyle = { textAlign: "center", padding: "16px 0", color: "var(--text-tertiary)", fontSize: 12 };
-
-function getTempoLabel(tempo) {
-    if (tempo >= 80) return "🔥 On Fire";
-    if (tempo >= 60) return "✅ Active";
-    if (tempo >= 40) return "📋 Normal";
-    return "💤 Inactive";
+function Empty({ text }) { return <div style={{ padding: "20px 0", textAlign: "center", color: "var(--text-muted)", fontSize: 12 }}>{text}</div>; }
+function Skeleton() {
+    return <div style={{ padding: 40, textAlign: "center" }}><div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--bg-tertiary)", margin: "0 auto 12px", animation: "pulse-soft 1.5s infinite" }} /><div style={{ color: "var(--text-muted)", fontSize: 13 }}>Đang tải...</div></div>;
 }
-
-function timeAgo(dateStr) {
-    const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-    if (diff < 60) return "Vừa xong";
-    if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
-    return `${Math.floor(diff / 86400)} ngày trước`;
-}
+function timeAgo(d) { const s = Math.floor((Date.now() - new Date(d)) / 1000); if (s < 60) return "Vừa xong"; if (s < 3600) return `${Math.floor(s / 60)}m`; if (s < 86400) return `${Math.floor(s / 3600)}h`; return `${Math.floor(s / 86400)}d`; }

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useUser } from "@/lib/UserContext";
-import { MessageSquare, Send, Pin, Search, Plus, Users as UsersIcon, Hash, User } from "lucide-react";
+import { MessageSquare, Send, Pin, Plus, User, Hash } from "lucide-react";
 import Modal from "@/components/Modal";
 
 export default function ChatPage() {
@@ -13,12 +13,11 @@ export default function ChatPage() {
     const [input, setInput] = useState("");
     const [showNewChat, setShowNewChat] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [searchFilter, setSearchFilter] = useState("");
+    const [search, setSearch] = useState("");
     const [showMentions, setShowMentions] = useState(false);
-    const [mentionFilter, setMentionFilter] = useState("");
     const [mentionUsers, setMentionUsers] = useState([]);
     const msgEnd = useRef(null);
-    const pollingRef = useRef(null);
+    const poll = useRef(null);
 
     useEffect(() => {
         if (!currentUser?.id) return;
@@ -28,144 +27,110 @@ export default function ChatPage() {
 
     const loadRooms = async () => {
         if (!currentUser?.id) return;
-        const res = await fetch(`/api/chat/rooms?user_id=${currentUser.id}`);
-        const data = await res.json();
+        const data = await fetch(`/api/chat/rooms?user_id=${currentUser.id}`).then(r => r.json());
         setRooms(Array.isArray(data) ? data : []);
         setLoading(false);
     };
 
-    const loadMessages = useCallback(async (roomId) => {
-        const res = await fetch(`/api/chat/messages?room_id=${roomId}`);
-        const data = await res.json();
+    const loadMsgs = useCallback(async (rid) => {
+        const data = await fetch(`/api/chat/messages?room_id=${rid}`).then(r => r.json());
         setMessages(Array.isArray(data) ? data : []);
-        setTimeout(() => msgEnd.current?.scrollIntoView({ behavior: "smooth" }), 100);
+        setTimeout(() => msgEnd.current?.scrollIntoView({ behavior: "smooth" }), 80);
     }, []);
 
     useEffect(() => {
         if (!activeRoom) return;
-        loadMessages(activeRoom);
-        pollingRef.current = setInterval(() => loadMessages(activeRoom), 5000);
-        return () => clearInterval(pollingRef.current);
-    }, [activeRoom, loadMessages]);
+        loadMsgs(activeRoom);
+        poll.current = setInterval(() => loadMsgs(activeRoom), 5000);
+        return () => clearInterval(poll.current);
+    }, [activeRoom, loadMsgs]);
 
-    const sendMessage = async () => {
+    const send = async () => {
         if (!input.trim() || !activeRoom) return;
-        // Parse @mentions
         const mentionRegex = /@(\w+)/g;
         const mentions = [];
         let m;
         while ((m = mentionRegex.exec(input)) !== null) {
-            const user = users.find(u => u.username.toLowerCase() === m[1].toLowerCase());
-            if (user) mentions.push(user.id);
+            const u = users.find(x => x.username.toLowerCase() === m[1].toLowerCase());
+            if (u) mentions.push(u.id);
         }
-
         await fetch("/api/chat/messages", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                room_id: activeRoom,
-                sender_id: currentUser.id,
-                content: input,
-                mentions: [...new Set(mentions)],
-            }),
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ room_id: activeRoom, sender_id: currentUser.id, content: input, mentions: [...new Set(mentions)] }),
         });
-        setInput("");
-        loadMessages(activeRoom);
+        setInput(""); loadMsgs(activeRoom);
     };
 
-    const pinMessage = async (msgId, pinned) => {
-        await fetch("/api/chat/messages", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: msgId, is_pinned: !pinned }),
-        });
-        loadMessages(activeRoom);
+    const togglePin = async (id, pinned) => {
+        await fetch("/api/chat/messages", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, is_pinned: !pinned }) });
+        loadMsgs(activeRoom);
     };
 
-    const createDirectChat = async (userId) => {
-        const res = await fetch("/api/chat/rooms", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ type: "direct", member_ids: [currentUser.id, userId] }),
-        });
-        const room = await res.json();
-        setShowNewChat(false);
-        loadRooms();
-        setActiveRoom(room.id);
+    const createDirect = async (uid) => {
+        const room = await fetch("/api/chat/rooms", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: "direct", member_ids: [currentUser.id, uid] }),
+        }).then(r => r.json());
+        setShowNewChat(false); loadRooms(); setActiveRoom(room.id);
     };
 
-    const handleInputChange = (e) => {
-        const val = e.target.value;
-        setInput(val);
-        const lastAt = val.lastIndexOf("@");
-        if (lastAt >= 0 && lastAt === val.length - 1 || (lastAt >= 0 && !/\s/.test(val.slice(lastAt)))) {
-            const filter = val.slice(lastAt + 1).toLowerCase();
-            setMentionFilter(filter);
-            setMentionUsers(users.filter(u => u.id !== currentUser.id && u.username.toLowerCase().includes(filter)));
+    const handleInput = (e) => {
+        const v = e.target.value; setInput(v);
+        const at = v.lastIndexOf("@");
+        if (at >= 0 && !/\s/.test(v.slice(at))) {
+            const f = v.slice(at + 1).toLowerCase();
+            setMentionUsers(users.filter(u => u.id !== currentUser.id && u.username.toLowerCase().includes(f)));
             setShowMentions(true);
-        } else {
-            setShowMentions(false);
-        }
+        } else setShowMentions(false);
     };
 
-    const insertMention = (username) => {
-        const lastAt = input.lastIndexOf("@");
-        setInput(input.slice(0, lastAt) + `@${username} `);
-        setShowMentions(false);
-    };
+    const insertMention = (un) => { setInput(input.slice(0, input.lastIndexOf("@")) + `@${un} `); setShowMentions(false); };
 
-    const getRoomName = (room) => {
-        if (room.name) return room.name;
-        if (room.type === "direct" && room.members) {
-            const other = room.members.find(m => m.user_id !== currentUser.id);
+    const roomName = (r) => {
+        if (r.name) return r.name;
+        if (r.type === "direct" && r.members) {
+            const other = r.members.find(m => m.user_id !== currentUser.id);
             return other?.user?.display_name || "Chat";
         }
         return "Chat Room";
     };
 
-    const ROOM_ICONS = { direct: <User size={14} />, project: <Hash size={14} />, module: <Hash size={14} /> };
-    const filteredRooms = rooms.filter(r => {
-        if (!searchFilter) return true;
-        return getRoomName(r).toLowerCase().includes(searchFilter.toLowerCase());
-    });
-
-    if (loading) return <div style={{ textAlign: "center", padding: 40, color: "#94A3B8" }}>Đang tải...</div>;
+    const filtered = rooms.filter(r => !search || roomName(r).toLowerCase().includes(search.toLowerCase()));
+    if (loading) return <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Đang tải...</div>;
 
     return (
-        <div className="fade-in" style={{ display: "flex", height: "calc(100vh - 100px)", gap: 0, margin: "-20px -24px", overflow: "hidden" }}>
-            {/* Rooms sidebar */}
-            <div style={{ width: 280, background: "#FFFFFF", borderRight: "1px solid #E2E8F0", display: "flex", flexDirection: "column", flexShrink: 0 }}>
-                <div style={{ padding: "12px", borderBottom: "1px solid #E2E8F0" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#0F172A", display: "flex", alignItems: "center", gap: 6 }}>
-                            <MessageSquare size={16} color="#8B5CF6" /> Chat
-                        </h3>
-                        <button onClick={() => setShowNewChat(true)} style={{ background: "#8B5CF610", border: "1px solid #8B5CF630", borderRadius: 6, padding: "3px 6px", cursor: "pointer", color: "#8B5CF6" }}>
+        <div className="fade-in" style={{ display: "flex", height: "calc(100vh - var(--header-height) - 48px)", margin: "-24px -28px", overflow: "hidden", borderRadius: "var(--radius-lg)" }}>
+            {/* Rooms */}
+            <div style={{ width: 300, background: "var(--bg-elevated)", borderRight: "1px solid var(--border-primary)", display: "flex", flexDirection: "column", flexShrink: 0 }}>
+                <div style={{ padding: 16, borderBottom: "1px solid var(--border-primary)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>💬 Chat</h3>
+                        <button onClick={() => setShowNewChat(true)} style={{ background: "var(--accent-bg)", border: "1px solid var(--border-active)", borderRadius: 8, padding: "4px 6px", cursor: "pointer", color: "var(--accent)", display: "flex" }}>
                             <Plus size={14} />
                         </button>
                     </div>
-                    <input type="text" placeholder="Tìm kiếm..." value={searchFilter} onChange={e => setSearchFilter(e.target.value)}
-                        style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1px solid #E2E8F0", fontSize: 12, outline: "none", boxSizing: "border-box" }} />
+                    <input type="text" placeholder="Tìm kiếm..." value={search} onChange={e => setSearch(e.target.value)} className="input-field" style={{ fontSize: 12, padding: "8px 12px" }} />
                 </div>
 
                 <div style={{ flex: 1, overflow: "auto" }}>
-                    {filteredRooms.length === 0 ? (
-                        <div style={{ padding: 16, textAlign: "center", color: "#94A3B8", fontSize: 12 }}>
-                            Chưa có cuộc trò chuyện. Nhấn + để bắt đầu!
-                        </div>
-                    ) : filteredRooms.map(room => (
+                    {filtered.length === 0 ? (
+                        <div style={{ padding: 24, textAlign: "center", color: "var(--text-muted)", fontSize: 12 }}>Nhấn + để bắt đầu chat!</div>
+                    ) : filtered.map(room => (
                         <div key={room.id} onClick={() => setActiveRoom(room.id)} style={{
-                            padding: "10px 12px", cursor: "pointer", borderBottom: "1px solid #F8FAFC",
-                            background: activeRoom === room.id ? "#EEF2FF" : "transparent",
-                            borderLeft: activeRoom === room.id ? "3px solid #8B5CF6" : "3px solid transparent",
+                            padding: "12px 16px", cursor: "pointer", borderBottom: "1px solid var(--border-primary)",
+                            background: activeRoom === room.id ? "var(--accent-bg)" : "transparent",
+                            borderLeft: activeRoom === room.id ? "3px solid var(--accent)" : "3px solid transparent",
+                            transition: "all 0.15s ease",
                         }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                <span style={{ color: "#8B5CF6" }}>{ROOM_ICONS[room.type]}</span>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--gradient-brand)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0, color: "#fff" }}>
+                                    {room.type === "direct" ? <User size={14} /> : <Hash size={14} />}
+                                </div>
                                 <div style={{ flex: 1, overflow: "hidden" }}>
-                                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0F172A", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{getRoomName(room)}</div>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{roomName(room)}</div>
                                     {room.last_message && (
-                                        <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                            {room.last_message.sender?.display_name}: {room.last_message.content}
+                                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                            {room.last_message.content}
                                         </div>
                                     )}
                                 </div>
@@ -175,42 +140,42 @@ export default function ChatPage() {
                 </div>
             </div>
 
-            {/* Message area */}
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "#F8FAFC" }}>
+            {/* Messages */}
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "var(--bg-secondary)" }}>
                 {!activeRoom ? (
-                    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#94A3B8" }}>
+                    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <div style={{ textAlign: "center" }}>
-                            <MessageSquare size={48} strokeWidth={1} style={{ opacity: 0.3, marginBottom: 12 }} />
-                            <div style={{ fontSize: 14 }}>Chọn cuộc trò chuyện hoặc tạo mới</div>
+                            <div style={{ width: 64, height: 64, borderRadius: 16, background: "var(--bg-tertiary)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+                                <MessageSquare size={28} strokeWidth={1.5} color="var(--text-muted)" />
+                            </div>
+                            <div style={{ color: "var(--text-muted)", fontSize: 13, fontWeight: 500 }}>Chọn cuộc trò chuyện</div>
                         </div>
                     </div>
                 ) : (
                     <>
-                        {/* Messages */}
-                        <div style={{ flex: 1, overflow: "auto", padding: "16px" }}>
+                        <div style={{ flex: 1, overflow: "auto", padding: 20 }}>
                             {messages.map(msg => {
                                 const isMe = msg.sender_id === currentUser.id;
                                 return (
-                                    <div key={msg.id} style={{ display: "flex", justifyContent: isMe ? "flex-end" : "flex-start", marginBottom: 8 }}>
-                                        <div style={{ maxWidth: "70%" }}>
+                                    <div key={msg.id} style={{ display: "flex", justifyContent: isMe ? "flex-end" : "flex-start", marginBottom: 10 }}>
+                                        <div style={{ maxWidth: "65%" }}>
                                             {!isMe && (
-                                                <div style={{ fontSize: 10, color: "#8B5CF6", fontWeight: 600, marginBottom: 2, marginLeft: 8 }}>
-                                                    {msg.sender?.avatar} {msg.sender?.display_name}
+                                                <div style={{ fontSize: 10, color: "var(--accent)", fontWeight: 600, marginBottom: 3, marginLeft: 6 }}>
+                                                    {msg.sender?.display_name}
                                                 </div>
                                             )}
                                             <div style={{
-                                                padding: "8px 12px", borderRadius: 12,
-                                                background: isMe ? "linear-gradient(135deg, #8B5CF6, #6D28D9)" : "#FFFFFF",
-                                                color: isMe ? "#fff" : "#0F172A",
-                                                border: isMe ? "none" : "1px solid #E2E8F0",
-                                                fontSize: 13, lineHeight: 1.5, position: "relative",
-                                                boxShadow: isMe ? "0 2px 8px rgba(139,92,246,0.2)" : "0 1px 3px rgba(0,0,0,0.04)",
+                                                padding: "10px 14px", borderRadius: isMe ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
+                                                background: isMe ? "var(--gradient-brand)" : "var(--bg-elevated)",
+                                                color: isMe ? "#fff" : "var(--text-primary)",
+                                                border: isMe ? "none" : "1px solid var(--border-primary)",
+                                                fontSize: 13, lineHeight: 1.5, boxShadow: isMe ? "0 2px 12px rgba(99,102,241,0.25)" : "var(--shadow-xs)",
                                             }}>
-                                                {msg.is_pinned && <span style={{ fontSize: 10, color: isMe ? "#E9D5FF" : "#F59E0B" }}>📌 </span>}
-                                                {highlightMentions(msg.content)}
-                                                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 9, color: isMe ? "#C4B5FD" : "#94A3B8" }}>
+                                                {msg.is_pinned && <span style={{ fontSize: 10 }}>📌 </span>}
+                                                {highlight(msg.content)}
+                                                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 9, opacity: 0.7 }}>
                                                     <span>{new Date(msg.created_at).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</span>
-                                                    <button onClick={() => pinMessage(msg.id, msg.is_pinned)} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: isMe ? "#C4B5FD" : "#94A3B8" }}>
+                                                    <button onClick={() => togglePin(msg.id, msg.is_pinned)} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "inherit", display: "flex" }}>
                                                         <Pin size={10} />
                                                     </button>
                                                 </div>
@@ -223,26 +188,37 @@ export default function ChatPage() {
                         </div>
 
                         {/* Input */}
-                        <div style={{ padding: "12px 16px", borderTop: "1px solid #E2E8F0", background: "#FFFFFF", position: "relative" }}>
+                        <div style={{ padding: "14px 20px", borderTop: "1px solid var(--border-primary)", background: "var(--bg-elevated)", position: "relative" }}>
                             {showMentions && mentionUsers.length > 0 && (
-                                <div style={{ position: "absolute", bottom: "100%", left: 16, right: 16, background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: 8, boxShadow: "0 -4px 12px rgba(0,0,0,0.08)", maxHeight: 160, overflow: "auto" }}>
+                                <div className="scale-in" style={{
+                                    position: "absolute", bottom: "100%", left: 20, right: 20,
+                                    background: "var(--bg-elevated)", border: "1px solid var(--border-primary)",
+                                    borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-lg)", maxHeight: 160, overflow: "auto",
+                                }}>
                                     {mentionUsers.slice(0, 5).map(u => (
-                                        <div key={u.id} onClick={() => insertMention(u.username)} style={{ padding: "6px 12px", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}
-                                            onMouseEnter={e => e.currentTarget.style.background = "#F8FAFC"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                                            <span>{u.avatar}</span> <strong>@{u.username}</strong> <span style={{ color: "#94A3B8" }}>— {u.display_name}</span>
+                                        <div key={u.id} onClick={() => insertMention(u.username)} style={{
+                                            padding: "8px 14px", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", gap: 8,
+                                            transition: "background 0.15s",
+                                        }} onMouseEnter={e => e.currentTarget.style.background = "var(--bg-tertiary)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                                            <span style={{ fontSize: 16 }}>{u.avatar}</span>
+                                            <span style={{ fontWeight: 600, color: "var(--accent)" }}>@{u.username}</span>
+                                            <span style={{ color: "var(--text-muted)" }}>{u.display_name}</span>
                                         </div>
                                     ))}
                                 </div>
                             )}
                             <div style={{ display: "flex", gap: 8 }}>
-                                <input value={input} onChange={handleInputChange}
-                                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                                <input value={input} onChange={handleInput}
+                                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
                                     placeholder="Nhập tin nhắn... (@ để mention)"
-                                    style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, outline: "none", boxSizing: "border-box" }}
-                                    onFocus={e => e.target.style.borderColor = "#8B5CF6"} onBlur={e => e.target.style.borderColor = "#E2E8F0"} />
-                                <button onClick={sendMessage} disabled={!input.trim()}
-                                    style={{ background: input.trim() ? "linear-gradient(135deg, #8B5CF6, #6D28D9)" : "#E2E8F0", color: input.trim() ? "#fff" : "#94A3B8", border: "none", borderRadius: 8, padding: "8px 14px", cursor: input.trim() ? "pointer" : "not-allowed", display: "flex", alignItems: "center", gap: 4 }}>
-                                    <Send size={14} />
+                                    className="input-field" style={{ flex: 1 }} />
+                                <button onClick={send} disabled={!input.trim()} style={{
+                                    background: input.trim() ? "var(--gradient-brand)" : "var(--bg-tertiary)",
+                                    color: input.trim() ? "#fff" : "var(--text-muted)", border: "none",
+                                    borderRadius: "var(--radius-sm)", padding: "10px 16px", cursor: input.trim() ? "pointer" : "not-allowed",
+                                    display: "flex", alignItems: "center", boxShadow: input.trim() ? "0 2px 8px rgba(99,102,241,0.3)" : "none",
+                                }}>
+                                    <Send size={15} />
                                 </button>
                             </div>
                         </div>
@@ -250,19 +226,17 @@ export default function ChatPage() {
                 )}
             </div>
 
-            {/* New chat modal */}
             {showNewChat && (
-                <Modal title="💬 Cuộc trò chuyện mới" onClose={() => setShowNewChat(false)}>
-                    <p style={{ color: "#64748B", fontSize: 13, marginBottom: 12 }}>Chọn người muốn chat:</p>
+                <Modal title="💬 Chat mới" onClose={() => setShowNewChat(false)} width={360}>
+                    <p style={{ color: "var(--text-tertiary)", fontSize: 12, marginBottom: 14 }}>Chọn người muốn chat:</p>
                     {users.filter(u => u.id !== currentUser.id).map(u => (
-                        <div key={u.id} onClick={() => createDirectChat(u.id)} style={{
-                            display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
-                            borderRadius: 8, cursor: "pointer", border: "1px solid #F1F5F9", marginBottom: 4,
-                        }} onMouseEnter={e => e.currentTarget.style.background = "#F8FAFC"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                            <span style={{ fontSize: 22 }}>{u.avatar}</span>
+                        <div key={u.id} onClick={() => createDirect(u.id)} className="glass-card" style={{
+                            display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", marginBottom: 6, cursor: "pointer",
+                        }}>
+                            <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--gradient-brand)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>{u.avatar}</div>
                             <div>
-                                <div style={{ fontSize: 13, fontWeight: 600, color: "#0F172A" }}>{u.display_name}</div>
-                                <div style={{ fontSize: 11, color: "#94A3B8" }}>@{u.username}</div>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{u.display_name}</div>
+                                <div style={{ fontSize: 11, color: "var(--text-muted)" }}>@{u.username}</div>
                             </div>
                         </div>
                     ))}
@@ -272,12 +246,9 @@ export default function ChatPage() {
     );
 }
 
-function highlightMentions(text) {
+function highlight(text) {
     if (!text) return text;
-    const parts = text.split(/(@\w+)/g);
-    return parts.map((part, i) =>
-        part.startsWith("@") ? (
-            <span key={i} style={{ color: "#8B5CF6", fontWeight: 600 }}>{part}</span>
-        ) : part
+    return text.split(/(@\w+)/g).map((p, i) =>
+        p.startsWith("@") ? <span key={i} style={{ color: "#818CF8", fontWeight: 600 }}>{p}</span> : p
     );
 }
