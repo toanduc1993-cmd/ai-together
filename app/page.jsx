@@ -91,12 +91,12 @@ export default function DashboardPage() {
             </div>
 
             {/* ===== KEY METRICS ROW ===== */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12, marginBottom: 24 }}>
-                <MetricCard icon={<Package size={20} />} label="Tổng Modules" value={totalModules} color="#6366F1" />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12, marginBottom: 24 }}>
+                <MetricCard icon={<Package size={20} />} label="Tổng" value={totalModules} color="#6366F1" />
                 <MetricCard icon={<Target size={20} />} label="Kế hoạch" value={plannedModules.length} color="#6366F1" />
-                <MetricCard icon={<Activity size={20} />} label="Đang thực hiện" value={inProgressModules.length} color="#F59E0B" />
+                <MetricCard icon={<Activity size={20} />} label="Đang làm" value={inProgressModules.length} color="#F59E0B" />
                 <MetricCard icon={<Clock size={20} />} label="Chờ duyệt" value={inReviewModules.length} color="#8B5CF6" />
-                <MetricCard icon={<AlertTriangle size={20} />} label="Yêu cầu sửa" value={changesReqModules.length} color="#EF4444" alert={changesReqModules.length > 0} />
+                <MetricCard icon={<AlertTriangle size={20} />} label="Cần sửa" value={changesReqModules.length} color="#EF4444" alert={changesReqModules.length > 0} />
                 <MetricCard icon={<CheckCircle2 size={20} />} label="Hoàn thành" value={doneModules.length} color="#10B981" sub={`${completionRate}%`} />
             </div>
 
