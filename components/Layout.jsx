@@ -2,13 +2,14 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, FolderKanban, Award, Users, Bell, Zap, LogOut, BarChart3, Moon, Sun, Menu } from "lucide-react";
+import { Home, FolderKanban, Award, Users, Bell, Zap, LogOut, BarChart3, Moon, Sun, Menu, ClipboardList } from "lucide-react";
 import { useUser } from "@/lib/UserContext";
 import LoginPage from "@/components/LoginPage";
 import ChatWidget from "@/components/ChatWidget";
 
 const NAV = [
     { href: "/", label: "Dashboard", icon: Home },
+    { href: "/my-tasks", label: "Công việc của tôi", icon: ClipboardList },
     { href: "/projects", label: "Projects", icon: FolderKanban },
     { href: "/leaderboard", label: "Leaderboard", icon: Award },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },

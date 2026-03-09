@@ -51,6 +51,8 @@ export default function ProjectDetailPage({ params }) {
     const [error, setError] = useState("");
     const [uploadingFiles, setUploadingFiles] = useState([]);
     const [uploading, setUploading] = useState(false);
+    const [showDeadlinePicker, setShowDeadlinePicker] = useState(null);
+    const [deadlineDate, setDeadlineDate] = useState("");
     const fileInputRef = useRef(null);
     const taskFileRef = useRef(null);
 
@@ -123,10 +125,10 @@ export default function ProjectDetailPage({ params }) {
         loadChecklist(moduleId); reload();
     };
 
-    const updateModuleStatus = async (moduleId, status) => {
+    const updateModuleStatus = async (moduleId, status, extraData = {}) => {
         await fetch("/api/modules", {
             method: "PUT", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: moduleId, status, user_id: currentUser.id, project_id: id }),
+            body: JSON.stringify({ id: moduleId, status, ...extraData, user_id: currentUser.id, project_id: id }),
         });
         // Auto-notify assignee when status changes
         const mod = modules.find(m => m.id === moduleId);
@@ -314,7 +316,11 @@ export default function ProjectDetailPage({ params }) {
                                 {/* Action buttons */}
                                 <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
                                     {canManage && mod.status === "planned" && (
-                                        <ActionBtn label="▶ Bắt đầu" bgColor="#F59E0B" onClick={(e) => { e.stopPropagation(); updateModuleStatus(mod.id, "in_progress"); }} />
+                                        <ActionBtn label="▶ Bắt đầu" bgColor="#F59E0B" onClick={(e) => {
+                                            e.stopPropagation();
+                                            setDeadlineDate(mod.deadline ? new Date(mod.deadline).toISOString().split('T')[0] : "");
+                                            setShowDeadlinePicker(mod.id);
+                                        }} />
                                     )}
                                     {canManage && mod.status === "in_progress" && (
                                         <ActionBtn label="✅ Hoàn thành" bgColor="#10B981" onClick={(e) => { e.stopPropagation(); updateModuleStatus(mod.id, "done"); }} />
@@ -576,6 +582,56 @@ export default function ProjectDetailPage({ params }) {
                         fetch(`/api/deliverables?module_id=${showReview}`).then(r => r.json()).then(d => { if (d.length) reviewDeliverable(d[0].id); });
                     }} disabled={!form.decision}
                         className="btn-primary" style={{ width: "100%", opacity: form.decision ? 1 : 0.5 }}>Gửi Review</button>
+                </Modal>
+            )}
+
+            {/* Deadline Picker Modal */}
+            {showDeadlinePicker && (
+                <Modal title="📅 Chọn deadline hoàn thành" onClose={() => setShowDeadlinePicker(null)} width={420}>
+                    <p style={{ color: "var(--text-tertiary)", fontSize: 14, marginBottom: 16, lineHeight: 1.6 }}>
+                        Vui lòng chọn ngày dự kiến hoàn thành trước khi bắt đầu công việc.
+                    </p>
+                    <div style={{ marginBottom: 20 }}>
+                        <label style={{ display: "block", fontSize: 14, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>
+                            Ngày hoàn thành dự kiến *
+                        </label>
+                        <input
+                            type="date"
+                            value={deadlineDate}
+                            onChange={e => setDeadlineDate(e.target.value)}
+                            min={new Date().toISOString().split('T')[0]}
+                            className="input-field"
+                            style={{ width: "100%", fontSize: 15, padding: "12px 14px", cursor: "pointer" }}
+                        />
+                    </div>
+                    {!deadlineDate && (
+                        <div style={{ color: "#F59E0B", fontSize: 13, marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                            ⚠️ Bạn cần chọn deadline để bắt đầu
+                        </div>
+                    )}
+                    <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                        <button onClick={() => setShowDeadlinePicker(null)} className="btn-ghost" style={{ padding: "10px 20px", fontSize: 14 }}>
+                            Hủy
+                        </button>
+                        <button
+                            disabled={!deadlineDate}
+                            onClick={async () => {
+                                await updateModuleStatus(showDeadlinePicker, "in_progress", { deadline: deadlineDate });
+                                setShowDeadlinePicker(null);
+                                setDeadlineDate("");
+                            }}
+                            style={{
+                                padding: "10px 24px", fontSize: 14, fontWeight: 700,
+                                background: deadlineDate ? "var(--gradient-brand)" : "var(--bg-tertiary)",
+                                color: deadlineDate ? "#fff" : "var(--text-muted)",
+                                border: "none", borderRadius: 10, cursor: deadlineDate ? "pointer" : "not-allowed",
+                                boxShadow: deadlineDate ? "0 2px 12px rgba(99,102,241,0.3)" : "none",
+                                transition: "all 0.2s",
+                            }}
+                        >
+                            ▶ Bắt đầu công việc
+                        </button>
+                    </div>
                 </Modal>
             )}
         </div>
