@@ -35,7 +35,13 @@ export default function Layout({ children }) {
                 for (const p of projects) {
                     const mRes = await fetch(`/api/modules?project_id=${p.id}`).then(r => r.json());
                     const mods = Array.isArray(mRes) ? mRes : [];
+                    // Count assigned modules (not done)
                     total += mods.filter(m => m.assigned_to === currentUser.id && m.status !== "done").length;
+                    // Count review modules (I'm chairman)
+                    const isProjectChairman = p.chairman_id === currentUser.id || p.lead_id === currentUser.id;
+                    if (isProjectChairman) {
+                        total += mods.filter(m => m.status === "in_review" && m.assigned_to !== currentUser.id).length;
+                    }
                 }
                 setMyTaskCount(total);
             } catch { }

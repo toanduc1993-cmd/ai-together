@@ -36,7 +36,7 @@ const TASK_STATUS_CFG = {
 
 export default function ProjectDetailPage({ params }) {
     const { id } = use(params);
-    const { currentUser, isChairman, isProjectLead } = useUser();
+    const { currentUser, isProjectLead } = useUser();
     const [project, setProject] = useState(null);
     const [modules, setModules] = useState([]);
     const [users, setUsers] = useState([]);
@@ -59,6 +59,9 @@ export default function ProjectDetailPage({ params }) {
     const taskFileRef = useRef(null);
     const [editingObjective, setEditingObjective] = useState(false);
     const [objectiveText, setObjectiveText] = useState("");
+
+    // Per-project chairman check — use project.chairman_id, not just global role
+    const isChairman = project?.chairman_id === currentUser?.id || project?.lead_id === currentUser?.id || currentUser?.role === "chairman";
 
     const reload = async () => {
         try {

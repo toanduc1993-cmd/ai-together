@@ -7,6 +7,7 @@ import { Package, Clock, AlertTriangle, CheckCircle2, ChevronRight, Calendar, Ar
 const STATUS_CFG = {
     planned: { color: "#6366F1", label: "Kế hoạch", icon: "📋", bg: "#6366F118" },
     in_progress: { color: "#F59E0B", label: "Đang thực hiện", icon: "🔨", bg: "#F59E0B18" },
+    in_review: { color: "#8B5CF6", label: "Chờ duyệt", icon: "👀", bg: "#8B5CF618" },
     review: { color: "#8B5CF6", label: "Review", icon: "👀", bg: "#8B5CF618" },
     submitted: { color: "#3B82F6", label: "Đã nộp", icon: "📤", bg: "#3B82F618" },
     approved: { color: "#10B981", label: "Phê duyệt", icon: "✅", bg: "#10B98118" },
@@ -36,15 +37,26 @@ export default function MyTasksPage() {
     const loadMyTasks = async () => {
         setLoading(true);
         try {
-            // Load all projects first, then get modules assigned to user
+            // Load all projects first, then get modules assigned to user + modules needing chairman review
             const projects = await fetch("/api/projects").then(r => r.json());
             const allModules = [];
             const allChecklists = [];
             for (const proj of (Array.isArray(projects) ? projects : [])) {
                 const mods = await fetch(`/api/modules?project_id=${proj.id}`).then(r => r.json());
-                const myMods = (Array.isArray(mods) ? mods : []).filter(m => m.assigned_to === currentUser.id);
+                const modList = Array.isArray(mods) ? mods : [];
+
+                // Modules assigned to me
+                const myMods = modList.filter(m => m.assigned_to === currentUser.id);
                 myMods.forEach(m => { m._project = proj; });
                 allModules.push(...myMods);
+
+                // Modules needing my review (I'm chairman of this project and module is in_review)
+                const isProjectChairman = proj.chairman_id === currentUser.id || proj.lead_id === currentUser.id;
+                if (isProjectChairman) {
+                    const reviewMods = modList.filter(m => m.status === "in_review" && m.assigned_to !== currentUser.id && !myMods.includes(m));
+                    reviewMods.forEach(m => { m._project = proj; m._needsReview = true; });
+                    allModules.push(...reviewMods);
+                }
 
                 // Load checklists for my modules
                 for (const mod of myMods) {
@@ -62,12 +74,13 @@ export default function MyTasksPage() {
         setLoading(false);
     };
 
-    const filtered = filter === "all" ? modules : modules.filter(m => m.status === filter);
+    const filtered = filter === "all" ? modules : filter === "in_review" ? modules.filter(m => m.status === "in_review") : modules.filter(m => m.status === filter);
     const now = new Date();
     const overdue = modules.filter(m => m.deadline && new Date(m.deadline) < now && m.status !== "done");
     const inProgress = modules.filter(m => m.status === "in_progress");
     const planned = modules.filter(m => m.status === "planned");
     const done = modules.filter(m => m.status === "done");
+    const inReview = modules.filter(m => m.status === "in_review");
 
     if (loading) return <div style={{ textAlign: "center", padding: 60, color: "var(--text-muted)", fontSize: 16 }}>⏳ Đang tải công việc...</div>;
 
@@ -97,6 +110,7 @@ export default function MyTasksPage() {
                     { key: "all", label: "Tất cả", count: modules.length },
                     { key: "planned", label: "Kế hoạch", count: planned.length },
                     { key: "in_progress", label: "Đang thực hiện", count: inProgress.length },
+                    { key: "in_review", label: "Chờ duyệt", count: inReview.length },
                     { key: "done", label: "Hoàn thành", count: done.length },
                 ].map(tab => (
                     <button key={tab.key} onClick={() => setFilter(tab.key)} style={{
@@ -149,6 +163,14 @@ export default function MyTasksPage() {
                                                         padding: "2px 10px", borderRadius: 8, display: "flex", alignItems: "center", gap: 4,
                                                     }}>
                                                         <AlertTriangle size={12} /> Quá hạn
+                                                    </span>
+                                                )}
+                                                {mod._needsReview && (
+                                                    <span style={{
+                                                        fontSize: 12, fontWeight: 700, color: "#8B5CF6", background: "#8B5CF618",
+                                                        padding: "2px 10px", borderRadius: 8, display: "flex", alignItems: "center", gap: 4,
+                                                    }}>
+                                                        👀 Cần duyệt
                                                     </span>
                                                 )}
                                             </div>
