@@ -213,20 +213,23 @@ export default function DashboardPage() {
                         <h3 style={{ margin: "0 0 14px", fontSize: 16, fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
                             <Activity size={18} color="var(--accent)" /> Hoạt động gần đây
                         </h3>
-                        {activities.length === 0 ? (
-                            <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>Chưa có hoạt động</div>
-                        ) : activities.slice(0, 8).map(a => (
-                            <div key={a.id} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--border-primary)" }}>
-                                <span style={{ fontSize: 16, flexShrink: 0, lineHeight: 1.4 }}>{a.user?.avatar || "🔵"}</span>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.4 }}>
-                                        <strong>{a.user?.display_name}</strong>{" "}
-                                        <span style={{ color: "var(--text-tertiary)" }}>{a.detail || a.action_type}</span>
+                        {(() => {
+                            const workActivities = activities.filter(a => !['chat_message', 'comment'].includes(a.action_type));
+                            return workActivities.length === 0 ? (
+                                <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>Chưa có hoạt động</div>
+                            ) : workActivities.slice(0, 8).map(a => (
+                                <div key={a.id} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--border-primary)" }}>
+                                    <span style={{ fontSize: 16, flexShrink: 0, lineHeight: 1.4 }}>{a.user?.avatar || "🔵"}</span>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.4 }}>
+                                            <strong>{a.user?.display_name}</strong>{" "}
+                                            <span style={{ color: "var(--text-tertiary)" }}>{a.detail || a.action_type}</span>
+                                        </div>
+                                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{timeAgo(a.created_at)}</div>
                                     </div>
-                                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{timeAgo(a.created_at)}</div>
                                 </div>
-                            </div>
-                        ))}
+                            ));
+                        })()}
                     </div>
                 </div>
             </div>
