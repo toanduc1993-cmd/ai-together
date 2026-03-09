@@ -128,6 +128,21 @@ export default function ProjectDetailPage({ params }) {
             method: "PUT", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: moduleId, status, user_id: currentUser.id, project_id: id }),
         });
+        // Auto-notify assignee when status changes
+        const mod = modules.find(m => m.id === moduleId);
+        if (mod?.assigned_to && mod.assigned_to !== currentUser.id) {
+            const STATUS_LABELS = { planned: "Kế hoạch", in_progress: "Đang phát triển", done: "Hoàn thành", submitted: "Đã nộp", approved: "Phê duyệt", changes_requested: "Yêu cầu sửa" };
+            await fetch("/api/notifications", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    user_id: mod.assigned_to,
+                    type: "module_status_changed",
+                    title: `Module "${mod.title}" → ${STATUS_LABELS[status] || status}`,
+                    body: `${currentUser.display_name} đã chuyển trạng thái module của bạn.`,
+                    entity_type: "module", entity_id: moduleId,
+                }),
+            });
+        }
         reload();
     };
 
@@ -264,6 +279,7 @@ export default function ProjectDetailPage({ params }) {
                 const items = checklists[mod.id] || [];
                 const moduleFiles = files[mod.id] || [];
                 const isOwner = currentUser?.id === mod.assigned_to;
+                const canManage = isOwner || isChairman || isProjectLead;
                 const canSubmit = isOwner && (mod.status === "in_progress" || mod.status === "changes_requested");
                 const canReview = isChairman && mod.status === "submitted";
 
@@ -297,21 +313,25 @@ export default function ProjectDetailPage({ params }) {
 
                                 {/* Action buttons */}
                                 <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-                                    {isOwner && mod.status === "planned" && (
-                                        <ActionBtn label="▶ Bắt đầu" color="var(--amber)" onClick={() => updateModuleStatus(mod.id, "in_progress")} />
+                                    {canManage && mod.status === "planned" && (
+                                        <ActionBtn label="▶ Bắt đầu" bgColor="#F59E0B" onClick={(e) => { e.stopPropagation(); updateModuleStatus(mod.id, "in_progress"); }} />
+                                    )}
+                                    {canManage && mod.status === "in_progress" && (
+                                        <ActionBtn label="✅ Hoàn thành" bgColor="#10B981" onClick={(e) => { e.stopPropagation(); updateModuleStatus(mod.id, "done"); }} />
                                     )}
                                     {canSubmit && (
-                                        <ActionBtn label="📤 Nộp kết quả" color="var(--blue)" onClick={() => { setForm({}); setUploadingFiles([]); setShowSubmit(mod.id); setError(""); }} />
+                                        <ActionBtn label="📤 Nộp kết quả" bgColor="#3B82F6" onClick={(e) => { e.stopPropagation(); setForm({}); setUploadingFiles([]); setShowSubmit(mod.id); setError(""); }} />
                                     )}
                                     {canReview && (
-                                        <ActionBtn label="👀 Review" color="var(--accent)" onClick={() => { setForm({}); setShowReview(mod.id); setError(""); }} />
+                                        <ActionBtn label="👀 Review" bgColor="#6366F1" onClick={(e) => { e.stopPropagation(); setForm({}); setShowReview(mod.id); setError(""); }} />
                                     )}
                                     {/* Upload files button */}
                                     {(isOwner || isProjectLead) && (
-                                        <ActionBtn label="📎 Đính kèm" color="var(--cyan)" onClick={() => {
+                                        <ActionBtn label="📎 Đính kèm" bgColor="#06B6D4" onClick={(e) => {
+                                            e.stopPropagation();
                                             const input = document.createElement("input");
                                             input.type = "file"; input.multiple = true;
-                                            input.onchange = (e) => { if (e.target.files.length) uploadFiles(mod.id, e.target.files); };
+                                            input.onchange = (ev) => { if (ev.target.files.length) uploadFiles(mod.id, ev.target.files); };
                                             input.click();
                                         }} />
                                     )}
@@ -562,9 +582,13 @@ export default function ProjectDetailPage({ params }) {
     );
 }
 
-function ActionBtn({ label, color, onClick }) {
+function ActionBtn({ label, bgColor, onClick }) {
     return (
-        <button onClick={onClick} style={{ background: `${color}10`, color, border: `1px solid ${color}30`, borderRadius: 8, padding: "7px 16px", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+        <button onClick={onClick} style={{
+            background: `${bgColor}18`, color: bgColor, border: `1px solid ${bgColor}40`,
+            borderRadius: 8, padding: "7px 16px", cursor: "pointer", fontSize: 13, fontWeight: 600,
+            transition: "all 0.2s",
+        }}>
             {label}
         </button>
     );

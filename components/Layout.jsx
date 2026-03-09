@@ -2,14 +2,14 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, FolderKanban, Award, Users, Bell, Zap, LogOut, MessageSquare, BarChart3, Moon, Sun, Menu } from "lucide-react";
+import { Home, FolderKanban, Award, Users, Bell, Zap, LogOut, BarChart3, Moon, Sun, Menu } from "lucide-react";
 import { useUser } from "@/lib/UserContext";
 import LoginPage from "@/components/LoginPage";
+import ChatWidget from "@/components/ChatWidget";
 
 const NAV = [
     { href: "/", label: "Dashboard", icon: Home },
     { href: "/projects", label: "Projects", icon: FolderKanban },
-    { href: "/chat", label: "Chat", icon: MessageSquare },
     { href: "/leaderboard", label: "Leaderboard", icon: Award },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/team", label: "Team", icon: Users },
@@ -190,6 +190,7 @@ export default function Layout({ children }) {
                     {children}
                 </main>
             </div>
+            <ChatWidget />
         </div>
     );
 }
