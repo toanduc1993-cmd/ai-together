@@ -106,11 +106,11 @@ export default function ProjectDetailPage({ params }) {
     };
 
     const addTask = async () => {
-        if (!form.title?.trim()) { setError("Tên task bắt buộc"); return; }
+        if (!form.title?.trim()) { setError("Tên checklist bắt buộc"); return; }
         setError("");
         const res = await fetch("/api/checklist", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...form, module_id: showAddTask, assigned_by: currentUser.id, project_id: id }),
+            body: JSON.stringify({ title: form.title, module_id: showAddTask, assigned_by: currentUser.id, project_id: id }),
         });
         if (!res.ok) { setError((await res.json()).error); return; }
         const modId = showAddTask;
@@ -163,7 +163,7 @@ export default function ProjectDetailPage({ params }) {
         loadFiles(moduleId);
     };
 
-    // Upload file for checklist item
+    // Upload file for checklist item — auto-marks as done
     const uploadTaskFile = async (checklistItemId, moduleId, fileList) => {
         setUploading(true);
         for (const file of fileList) {
@@ -175,6 +175,8 @@ export default function ProjectDetailPage({ params }) {
             fd.append("label", "Task attachment");
             await fetch("/api/files", { method: "POST", body: fd });
         }
+        // Auto-mark checklist item as done after upload
+        await updateTaskStatus(checklistItemId, "done", moduleId);
         setUploading(false);
         loadFiles(moduleId);
     };
@@ -322,9 +324,16 @@ export default function ProjectDetailPage({ params }) {
                                             setShowDeadlinePicker(mod.id);
                                         }} />
                                     )}
-                                    {canManage && mod.status === "in_progress" && (
-                                        <ActionBtn label="✅ Hoàn thành" bgColor="#10B981" onClick={(e) => { e.stopPropagation(); updateModuleStatus(mod.id, "done"); }} />
-                                    )}
+                                    {canManage && mod.status === "in_progress" && (() => {
+                                        const allDone = items.length > 0 && items.every(t => t.status === "done");
+                                        return allDone ? (
+                                            <ActionBtn label="✅ Hoàn thành" bgColor="#10B981" onClick={(e) => { e.stopPropagation(); updateModuleStatus(mod.id, "done"); }} />
+                                        ) : (
+                                            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#F59E0B", background: "#F59E0B18", padding: "6px 14px", borderRadius: 8, fontWeight: 600 }}>
+                                                ⚠️ Cần hoàn thành tất cả checklist ({items.filter(t => t.status === "done").length}/{items.length})
+                                            </div>
+                                        );
+                                    })()}
                                     {canSubmit && (
                                         <ActionBtn label="📤 Nộp kết quả" bgColor="#3B82F6" onClick={(e) => { e.stopPropagation(); setForm({}); setUploadingFiles([]); setShowSubmit(mod.id); setError(""); }} />
                                     )}
@@ -398,38 +407,47 @@ export default function ProjectDetailPage({ params }) {
                                 {items.length === 0 ? (
                                     <div style={{ fontSize: 14, color: "var(--text-muted)", padding: "14px 0" }}>Chưa có checklist item.</div>
                                 ) : items.map(item => {
-                                    const ts = TASK_STATUS_CFG[item.status] || TASK_STATUS_CFG.todo;
                                     const taskFiles = moduleFiles.filter(f => f.checklist_item_id === item.id);
+                                    const isDone = item.status === "done";
                                     return (
-                                        <div key={item.id} style={{ padding: "10px 14px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-primary)", marginBottom: 6, fontSize: 14 }}>
+                                        <div key={item.id} style={{
+                                            padding: "12px 16px", borderRadius: "var(--radius-sm)", marginBottom: 8, fontSize: 14,
+                                            border: isDone ? "1px solid #10B98140" : "1px solid var(--border-primary)",
+                                            background: isDone ? "#10B98108" : "var(--bg-elevated)",
+                                        }}>
                                             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                                <select value={item.status} onChange={e => updateTaskStatus(item.id, e.target.value, mod.id)}
-                                                    style={{ padding: "4px 8px", borderRadius: 6, border: `1px solid ${ts.color}40`, fontSize: 12, background: `${ts.color}10`, color: ts.color, fontWeight: 600, cursor: "pointer" }}>
-                                                    <option value="todo">Todo</option>
-                                                    <option value="doing">Đang làm</option>
-                                                    <option value="done">Xong</option>
-                                                    <option value="blocked">Blocked</option>
-                                                </select>
+                                                {/* Status icon */}
+                                                <span style={{ fontSize: 18 }}>{isDone ? "✅" : "⬜"}</span>
                                                 <div style={{ flex: 1 }}>
-                                                    <div style={{ fontWeight: 500, fontSize: 15, color: item.status === "done" ? "var(--text-muted)" : "var(--text-primary)", textDecoration: item.status === "done" ? "line-through" : "none" }}>{item.title}</div>
-                                                    <div style={{ color: "var(--text-muted)", fontSize: 13, marginTop: 2 }}>
-                                                        {item.assignee && <span>👤 {item.assignee.display_name}</span>}
-                                                        {item.deadline && <span> · 📅 {new Date(item.deadline).toLocaleDateString("vi-VN")}</span>}
-                                                    </div>
+                                                    <div style={{
+                                                        fontWeight: 600, fontSize: 15,
+                                                        color: isDone ? "var(--text-muted)" : "var(--text-primary)",
+                                                        textDecoration: isDone ? "line-through" : "none",
+                                                    }}>{item.title}</div>
+                                                    {isDone && taskFiles.length > 0 && (
+                                                        <div style={{ fontSize: 12, color: "#10B981", marginTop: 4, fontWeight: 600 }}>✓ Đã nộp tài liệu</div>
+                                                    )}
                                                 </div>
-                                                {/* Task file attach button */}
-                                                <button onClick={() => {
-                                                    const input = document.createElement("input");
-                                                    input.type = "file"; input.multiple = true;
-                                                    input.onchange = (e) => { if (e.target.files.length) uploadTaskFile(item.id, mod.id, e.target.files); };
-                                                    input.click();
-                                                }} title="Đính kèm file" style={{ background: "var(--bg-tertiary)", border: "none", borderRadius: 8, padding: 6, cursor: "pointer", color: "var(--text-tertiary)", display: "flex" }}>
-                                                    <Paperclip size={ICO.sm} />
-                                                </button>
+                                                {/* Upload button — only show if NOT done */}
+                                                {!isDone && (
+                                                    <button onClick={() => {
+                                                        const input = document.createElement("input");
+                                                        input.type = "file"; input.multiple = true;
+                                                        input.onchange = (e) => { if (e.target.files.length) uploadTaskFile(item.id, mod.id, e.target.files); };
+                                                        input.click();
+                                                    }} style={{
+                                                        background: "#6366F118", border: "1px solid #6366F140",
+                                                        borderRadius: 8, padding: "6px 14px", cursor: "pointer",
+                                                        color: "#6366F1", display: "flex", alignItems: "center", gap: 6,
+                                                        fontSize: 13, fontWeight: 600, transition: "all 0.2s",
+                                                    }}>
+                                                        <Upload size={14} /> Nộp tài liệu
+                                                    </button>
+                                                )}
                                             </div>
                                             {/* Show task files */}
                                             {taskFiles.length > 0 && (
-                                                <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border-primary)" }}>
+                                                <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border-primary)" }}>
                                                     {taskFiles.map(f => (
                                                         <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 13 }}>
                                                             <span style={{ fontSize: 16 }}>{getFileIcon(f.file_type)}</span>
@@ -476,18 +494,13 @@ export default function ProjectDetailPage({ params }) {
             )}
 
             {showAddTask && (
-                <Modal title="📋 Thêm Task" onClose={() => setShowAddTask(null)}>
+                <Modal title="📋 Thêm Checklist" onClose={() => setShowAddTask(null)}>
                     {error && <div style={{ color: "var(--red)", fontSize: 12, marginBottom: 8 }}>⚠️ {error}</div>}
-                    <Input label="Tên task *" value={form.title || ""} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
-                    <Input label="Mô tả" value={form.description || ""} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                        <Select label="Assign cho" value={form.assigned_to || ""} onChange={e => setForm(f => ({ ...f, assigned_to: e.target.value }))}>
-                            <option value="">-- Chọn --</option>
-                            {users.map(u => <option key={u.id} value={u.id}>{u.display_name}</option>)}
-                        </Select>
-                        <Input label="Deadline" type="date" value={form.deadline || ""} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))} />
-                    </div>
-                    <button onClick={addTask} className="btn-primary" style={{ width: "100%", marginTop: 8 }}>Thêm Task</button>
+                    <Input label="Tên checklist *" placeholder="Nhập tên công việc cần hoàn thành..." value={form.title || ""} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+                    <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 8, lineHeight: 1.5 }}>
+                        💡 Người thực hiện sẽ upload tài liệu để hoàn thành mục này. Module chỉ có thể chuyển trạng thái khi tất cả checklist đã hoàn thành.
+                    </p>
+                    <button onClick={addTask} className="btn-primary" style={{ width: "100%", marginTop: 12 }}>Thêm Checklist</button>
                 </Modal>
             )}
 
