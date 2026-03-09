@@ -1,4 +1,5 @@
 import { getUserByUsername, stripPassword } from "@/lib/supabase";
+import { verifyPassword, createToken } from "@/lib/authMiddleware";
 import { NextResponse } from "next/server";
 
 export async function POST(req) {
@@ -12,11 +13,14 @@ export async function POST(req) {
         if (!user) {
             return NextResponse.json({ error: "Username không tồn tại" }, { status: 401 });
         }
-        if (user.password_hash !== password) {
+
+        // Support both hashed and legacy plaintext passwords
+        const isValid = verifyPassword(password, user.password_hash) || user.password_hash === password;
+        if (!isValid) {
             return NextResponse.json({ error: "Sai mật khẩu" }, { status: 401 });
         }
 
-        const token = Buffer.from(`${user.id}:${Date.now()}`).toString("base64");
+        const token = createToken(user.id);
         return NextResponse.json({ user: stripPassword(user), token });
     } catch (err) {
         return NextResponse.json({ error: err.message }, { status: 500 });

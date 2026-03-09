@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useUser } from "@/lib/UserContext";
 import { FolderKanban, ArrowRight, TrendingUp, Clock, Activity, CheckCircle2, AlertTriangle, Users, Package, Target, BarChart3 } from "lucide-react";
 import Link from "next/link";
+import TempoOverview from "@/components/TempoWidget";
 
 export default function DashboardPage() {
     const { currentUser, unreadCount } = useUser();
@@ -78,6 +79,14 @@ export default function DashboardPage() {
     ];
     const maxCount = Math.max(...statusDist.map(s => s.count), 1);
 
+    // Activities grouped by user for Tempo
+    const activitiesByUser = {};
+    activities.forEach(a => {
+        if (!a.user_id) return;
+        if (!activitiesByUser[a.user_id]) activitiesByUser[a.user_id] = [];
+        activitiesByUser[a.user_id].push(a);
+    });
+
     return (
         <div className="fade-in">
             {/* Hero */}
@@ -99,6 +108,9 @@ export default function DashboardPage() {
                 <MetricCard icon={<AlertTriangle size={20} />} label="Cần sửa" value={changesReqModules.length} color="#EF4444" alert={changesReqModules.length > 0} />
                 <MetricCard icon={<CheckCircle2 size={20} />} label="Hoàn thành" value={doneModules.length} color="#10B981" sub={`${completionRate}%`} />
             </div>
+
+            {/* ===== TEMPO OVERVIEW ===== */}
+            <TempoOverview users={users} activitiesByUser={activitiesByUser} />
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }} className="grid-2">
                 {/* ===== LEFT COLUMN ===== */}

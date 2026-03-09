@@ -27,6 +27,9 @@ export async function POST(req) {
         if (!body.project_id || !body.title) {
             return NextResponse.json({ error: "project_id và title là bắt buộc" }, { status: 400 });
         }
+        if (body.title.length > 200) {
+            return NextResponse.json({ error: "Tên module quá dài (tối đa 200 ký tự)" }, { status: 400 });
+        }
 
         const mod = await createModule({
             project_id: body.project_id,

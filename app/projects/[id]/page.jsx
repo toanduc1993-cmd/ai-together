@@ -1,11 +1,13 @@
 "use client";
 import { useState, useEffect, use, useRef } from "react";
 import { useUser } from "@/lib/UserContext";
-import { ArrowLeft, Plus, Package, ChevronDown, ChevronRight, Upload, Paperclip, FileText, Download, X, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Package, ChevronDown, ChevronRight, Upload, Paperclip, FileText, Download, X, Trash2, UserPlus } from "lucide-react";
 import Link from "next/link";
 import Modal from "@/components/Modal";
 import Input from "@/components/Input";
 import Select from "@/components/Select";
+import DiscussionThread from "@/components/DiscussionThread";
+import AssignModuleModal from "@/components/AssignModuleModal";
 
 /* ==================== ICON SIZES ==================== */
 const ICO = { sm: 16, md: 20, lg: 24 };
@@ -59,6 +61,7 @@ export default function ProjectDetailPage({ params }) {
     const taskFileRef = useRef(null);
     const [editingObjective, setEditingObjective] = useState(false);
     const [objectiveText, setObjectiveText] = useState("");
+    const [showAssignModal, setShowAssignModal] = useState(false);
 
     // Per-project chairman check — use project.chairman_id, not just global role
     const isChairman = project?.chairman_id === currentUser?.id || project?.lead_id === currentUser?.id || currentUser?.role === "chairman";
@@ -446,11 +449,17 @@ export default function ProjectDetailPage({ params }) {
                 <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
                     <Package size={ICO.md} color="var(--accent)" /> Modules ({modules.length})
                 </h3>
-                {isChairman && (
-                    <button onClick={() => { setForm({}); setShowAddModule(true); setError(""); }} className="btn-primary" style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 14 }}>
-                        <Plus size={ICO.sm} /> Thêm Module
+                <div style={{ display: "flex", gap: 8 }}>
+                    {/* Peer assignment button — ANY user can assign */}
+                    <button onClick={() => setShowAssignModal(true)} className="btn-ghost" style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13 }}>
+                        <UserPlus size={ICO.sm} /> Giao Module
                     </button>
-                )}
+                    {isChairman && (
+                        <button onClick={() => { setForm({}); setShowAddModule(true); setError(""); }} className="btn-primary" style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 14 }}>
+                            <Plus size={ICO.sm} /> Thêm Module
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Module list — non-chairman only sees assigned modules */}
@@ -708,6 +717,11 @@ export default function ProjectDetailPage({ params }) {
                                             </div>
                                         );
                                     })}
+
+                                    {/* Discussion Thread */}
+                                    <div style={{ marginTop: 16 }}>
+                                        <DiscussionThread moduleId={mod.id} projectId={id} />
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -922,6 +936,16 @@ export default function ProjectDetailPage({ params }) {
                         </button>
                     </div>
                 </Modal>
+            )}
+
+            {/* Peer Assignment Modal */}
+            {showAssignModal && (
+                <AssignModuleModal
+                    projectId={id}
+                    users={users}
+                    onClose={() => setShowAssignModal(false)}
+                    onCreated={() => reload()}
+                />
             )}
         </div>
     );

@@ -1,4 +1,4 @@
-import { getScores, upsertScore } from "@/lib/supabase";
+import { getScores } from "@/lib/supabase";
 import { NextResponse } from "next/server";
 
 export async function GET(req) {
@@ -12,13 +12,10 @@ export async function GET(req) {
     }
 }
 
-export async function POST(req) {
-    try {
-        const body = await req.json();
-        if (!body.user_id) return NextResponse.json({ error: "user_id là bắt buộc" }, { status: 400 });
-        const score = await upsertScore(body);
-        return NextResponse.json(score);
-    } catch (err) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
-    }
+// POST disabled — scores can only be written via /api/scores/calculate
+export async function POST() {
+    return NextResponse.json(
+        { error: "Score không thể gửi trực tiếp. Dùng /api/scores/calculate để tính điểm." },
+        { status: 403 }
+    );
 }
