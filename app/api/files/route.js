@@ -6,6 +6,7 @@ export async function POST(req) {
         const formData = await req.formData();
         const file = formData.get("file");
         const moduleId = formData.get("module_id");
+        const projectId = formData.get("project_id");
         const deliverableId = formData.get("deliverable_id");
         const checklistItemId = formData.get("checklist_item_id");
         const uploadedBy = formData.get("uploaded_by");
@@ -41,6 +42,7 @@ export async function POST(req) {
                 checklist_label: label,
                 uploaded_by: uploadedBy || null,
                 module_id: moduleId || null,
+                project_id: projectId || null,
                 deliverable_id: deliverableId || null,
                 checklist_item_id: checklistItemId || null,
             };
@@ -70,6 +72,7 @@ export async function POST(req) {
                 checklist_label: label,
                 uploaded_by: uploadedBy || null,
                 module_id: moduleId || null,
+                project_id: projectId || null,
                 deliverable_id: deliverableId || null,
                 checklist_item_id: checklistItemId || null,
             })
@@ -87,12 +90,14 @@ export async function GET(req) {
     try {
         const { searchParams } = new URL(req.url);
         const moduleId = searchParams.get("module_id");
+        const projectId = searchParams.get("project_id");
         const deliverableId = searchParams.get("deliverable_id");
         const checklistItemId = searchParams.get("checklist_item_id");
 
         let query = supabase.from("deliverable_files").select("*").order("uploaded_at", { ascending: false });
 
         if (moduleId) query = query.eq("module_id", moduleId);
+        if (projectId) query = query.eq("project_id", projectId).is("module_id", null);
         if (deliverableId) query = query.eq("deliverable_id", deliverableId);
         if (checklistItemId) query = query.eq("checklist_item_id", checklistItemId);
 

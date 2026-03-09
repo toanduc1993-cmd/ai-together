@@ -43,6 +43,7 @@ export default function ProjectDetailPage({ params }) {
     const [expandedModule, setExpandedModule] = useState(null);
     const [checklists, setChecklists] = useState({});
     const [files, setFiles] = useState({});
+    const [projectFiles, setProjectFiles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAddModule, setShowAddModule] = useState(false);
     const [showAddTask, setShowAddTask] = useState(null);
@@ -72,6 +73,14 @@ export default function ProjectDetailPage({ params }) {
     };
 
     useEffect(() => { reload(); }, [id]);
+
+    // Load project-level files
+    const loadProjectFiles = async () => {
+        const res = await fetch(`/api/files?project_id=${id}`);
+        const data = await res.json();
+        setProjectFiles(Array.isArray(data) ? data : []);
+    };
+    useEffect(() => { loadProjectFiles(); }, [id]);
 
     const loadChecklist = async (moduleId) => {
         const res = await fetch(`/api/checklist?module_id=${moduleId}`);
@@ -266,7 +275,23 @@ export default function ProjectDetailPage({ params }) {
 
     const deleteFile = async (fileId, moduleId) => {
         await fetch(`/api/files?id=${fileId}`, { method: "DELETE" });
-        loadFiles(moduleId);
+        if (moduleId) loadFiles(moduleId);
+        else loadProjectFiles();
+    };
+
+    // Upload project-level files (chairman only)
+    const uploadProjectFiles = async (fileList) => {
+        setUploading(true);
+        for (const file of fileList) {
+            const fd = new FormData();
+            fd.append("file", file);
+            fd.append("project_id", id);
+            fd.append("uploaded_by", currentUser.id);
+            fd.append("label", "Project document");
+            await fetch("/api/files", { method: "POST", body: fd });
+        }
+        setUploading(false);
+        loadProjectFiles();
     };
 
     const formatFileSize = (bytes) => {
@@ -305,6 +330,63 @@ export default function ProjectDetailPage({ params }) {
                 </div>
             </div>
             {project.description && <p style={{ color: "var(--text-tertiary)", fontSize: 15, marginBottom: 18, lineHeight: 1.6 }}>{project.description}</p>}
+
+            {/* ===== PROJECT DOCUMENTS SECTION ===== */}
+            <div className="glass-card" style={{ padding: "18px 22px", marginBottom: 20 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
+                        <Paperclip size={ICO.md} color="var(--accent)" /> Tài liệu dự án ({projectFiles.length})
+                    </h3>
+                    {isChairman && (
+                        <button onClick={() => {
+                            const input = document.createElement("input");
+                            input.type = "file"; input.multiple = true;
+                            input.onchange = (ev) => { if (ev.target.files.length) uploadProjectFiles(ev.target.files); };
+                            input.click();
+                        }} className="btn-primary" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 16px", fontSize: 13 }}>
+                            <Upload size={ICO.sm} /> Thêm tài liệu
+                        </button>
+                    )}
+                </div>
+                {uploading && <div style={{ fontSize: 14, color: "var(--accent)", marginBottom: 10, animation: "pulse-soft 1s infinite" }}>⏳ Đang upload...</div>}
+                {projectFiles.length === 0 ? (
+                    <div style={{ fontSize: 14, color: "var(--text-muted)", padding: "16px 0", textAlign: "center" }}>
+                        Chưa có tài liệu dự án. {isChairman && 'Nhấn "Thêm tài liệu" để upload.'}
+                    </div>
+                ) : (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
+                        {projectFiles.map(f => (
+                            <div key={f.id} style={{
+                                display: "flex", alignItems: "center", gap: 10, padding: "12px 14px",
+                                borderRadius: "var(--radius-sm)", border: "1px solid var(--border-primary)",
+                                background: "var(--bg-secondary)", fontSize: 14,
+                            }}>
+                                <span style={{ fontSize: 24, flexShrink: 0 }}>{getFileIcon(f.file_type)}</span>
+                                <div style={{ flex: 1, overflow: "hidden" }}>
+                                    <div style={{ fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.filename}</div>
+                                    <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+                                        {formatFileSize(f.file_size)}
+                                    </div>
+                                </div>
+                                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                                    {f.file_url && f.file_url.startsWith("http") && (
+                                        <a href={f.file_url} target="_blank" rel="noopener noreferrer" download
+                                            style={{ background: "var(--green-bg)", color: "var(--green)", border: "none", borderRadius: 8, padding: 6, cursor: "pointer", display: "flex" }}>
+                                            <Download size={ICO.sm} />
+                                        </a>
+                                    )}
+                                    {isChairman && (
+                                        <button onClick={() => deleteFile(f.id, null)}
+                                            style={{ background: "var(--red-bg)", color: "var(--red)", border: "none", borderRadius: 8, padding: 6, cursor: "pointer", display: "flex" }}>
+                                            <Trash2 size={ICO.sm} />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
 
             {/* Modules toolbar */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
