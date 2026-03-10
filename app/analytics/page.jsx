@@ -16,8 +16,10 @@ export default function AnalyticsPage() {
     useEffect(() => {
         const load = async () => {
             try {
-                const [pRes, uRes, aRes] = await Promise.all([
+                // Fetch ALL data in parallel — no more N+1
+                const [pRes, mRes, uRes, aRes] = await Promise.all([
                     fetch("/api/projects").then(r => r.json()),
+                    fetch("/api/modules").then(r => r.json()),
                     fetch("/api/users").then(r => r.json()),
                     fetch("/api/activities").then(r => r.json()),
                 ]);
@@ -26,11 +28,11 @@ export default function AnalyticsPage() {
                 setUsers(Array.isArray(uRes) ? uRes : []);
                 setActivities(Array.isArray(aRes) ? aRes : []);
 
-                const mods = [];
-                for (const p of prjs) {
-                    const mRes = await fetch(`/api/modules?project_id=${p.id}`).then(r => r.json());
-                    (Array.isArray(mRes) ? mRes : []).forEach(m => { m._project = p; mods.push(m); });
-                }
+                // Attach project info from the join
+                const mods = (Array.isArray(mRes) ? mRes : []).map(m => ({
+                    ...m,
+                    _project: m.project || prjs.find(p => p.id === m.project_id),
+                }));
                 setAllModules(mods);
             } catch { }
             setLoading(false);

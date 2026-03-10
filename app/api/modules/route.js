@@ -1,4 +1,4 @@
-import { getModulesByProject, getModuleById, createModule, updateModule, createActivity, createNotification } from "@/lib/supabase";
+import { getModulesByProject, getModuleById, getAllModules, createModule, updateModule, createActivity, createNotification } from "@/lib/supabase";
 import { NextResponse } from "next/server";
 
 export async function GET(req) {
@@ -15,7 +15,9 @@ export async function GET(req) {
             const modules = await getModulesByProject(projectId);
             return NextResponse.json(modules);
         }
-        return NextResponse.json({ error: "Cần project_id hoặc id" }, { status: 400 });
+        // No filter → return ALL modules (single query, avoids N+1)
+        const modules = await getAllModules();
+        return NextResponse.json(modules);
     } catch (err) {
         return NextResponse.json({ error: err.message }, { status: 500 });
     }

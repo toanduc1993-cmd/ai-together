@@ -17,9 +17,11 @@ export default function DashboardPage() {
         if (!currentUser?.id) return;
         const load = async () => {
             try {
-                const [pRes, aRes, uRes] = await Promise.all([
+                // Fetch ALL data in parallel — 4 concurrent requests instead of 12+ sequential
+                const [pRes, mRes, aRes, uRes] = await Promise.all([
                     fetch("/api/projects").then(r => r.json()),
-                    fetch("/api/activities").then(r => r.json()),
+                    fetch("/api/modules").then(r => r.json()),   // ALL modules in 1 call
+                    fetch("/api/activities?limit=50").then(r => r.json()),
                     fetch("/api/users").then(r => r.json()),
                 ]);
                 const prjs = Array.isArray(pRes) ? pRes : [];
@@ -27,14 +29,11 @@ export default function DashboardPage() {
                 setActivities(Array.isArray(aRes) ? aRes : []);
                 setUsers(Array.isArray(uRes) ? uRes : []);
 
-                // Load all modules across all projects
-                const mods = [];
-                for (const p of prjs) {
-                    const mRes = await fetch(`/api/modules?project_id=${p.id}`).then(r => r.json());
-                    const ms = Array.isArray(mRes) ? mRes : [];
-                    ms.forEach(m => { m._project = p; });
-                    mods.push(...ms);
-                }
+                // Attach project info to each module using the project join
+                const mods = (Array.isArray(mRes) ? mRes : []).map(m => ({
+                    ...m,
+                    _project: m.project || prjs.find(p => p.id === m.project_id),
+                }));
                 setAllModules(mods);
             } catch { }
             setLoading(false);
