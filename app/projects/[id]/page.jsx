@@ -66,6 +66,8 @@ export default function ProjectDetailPage({ params }) {
     const [editingRepo, setEditingRepo] = useState(false);
     const [repoUrl, setRepoUrl] = useState("");
     const [repoSaving, setRepoSaving] = useState(false);
+    const [syncing, setSyncing] = useState(false);
+    const [syncResult, setSyncResult] = useState(null);
 
     const handleReassign = async (moduleId, newUserId) => {
         setReassigningModule(null);
@@ -455,13 +457,38 @@ export default function ProjectDetailPage({ params }) {
                             )}
                         </div>
                         {!editingRepo ? (
-                            <button
-                                onClick={() => { setEditingRepo(true); setRepoUrl(project?.github_repo || ""); }}
-                                className="btn-ghost"
-                                style={{ fontSize: 12, padding: "4px 12px", display: "flex", alignItems: "center", gap: 4 }}
-                            >
-                                <LinkIcon size={13} /> {project?.github_repo ? "Đổi repo" : "Liên kết repo"}
-                            </button>
+                            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                <button
+                                    onClick={() => { setEditingRepo(true); setRepoUrl(project?.github_repo || ""); }}
+                                    className="btn-ghost"
+                                    style={{ fontSize: 12, padding: "4px 12px", display: "flex", alignItems: "center", gap: 4 }}
+                                >
+                                    <LinkIcon size={13} /> {project?.github_repo ? "Đổi repo" : "Liên kết repo"}
+                                </button>
+                                {project?.github_repo && (
+                                    <button
+                                        disabled={syncing}
+                                        onClick={async () => {
+                                            setSyncing(true); setSyncResult(null);
+                                            try {
+                                                const res = await fetch("/api/webhooks/github", {
+                                                    method: "PUT",
+                                                    headers: { "Content-Type": "application/json" },
+                                                    body: JSON.stringify({ project_id: project.id }),
+                                                });
+                                                const data = await res.json();
+                                                setSyncResult(data);
+                                                if (data.files_synced > 0) reload();
+                                            } catch { setSyncResult({ error: "Sync failed" }); }
+                                            setSyncing(false);
+                                        }}
+                                        className="btn-primary"
+                                        style={{ fontSize: 12, padding: "4px 14px", display: "flex", alignItems: "center", gap: 4 }}
+                                    >
+                                        {syncing ? "⏳ Đang sync..." : "🔄 Sync từ GitHub"}
+                                    </button>
+                                )}
+                            </div>
                         ) : (
                             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                                 <input
@@ -510,6 +537,12 @@ export default function ProjectDetailPage({ params }) {
                             • Content type: application/json<br />
                             • Events: Push<br />
                             Mỗi lần push file tài liệu (PDF, docx, xlsx...) sẽ tự động xuất hiện trong "Tài liệu dự án".
+                        </div>
+                    )}
+                    {syncResult && (
+                        <div style={{ marginTop: 8, fontSize: 12, padding: "8px 12px", borderRadius: 8, background: syncResult.error ? "rgba(239,68,68,0.1)" : "var(--green-bg)", color: syncResult.error ? "#EF4444" : "var(--green)" }}>
+                            {syncResult.error ? `❌ ${syncResult.error}` : `✅ Đã sync ${syncResult.files_synced} file mới (tổng ${syncResult.total_docs_in_repo} tài liệu trong repo)`}
+                            {syncResult.files?.length > 0 && <span style={{ marginLeft: 8, fontWeight: 600 }}>{syncResult.files.join(", ")}</span>}
                         </div>
                     )}
                 </div>

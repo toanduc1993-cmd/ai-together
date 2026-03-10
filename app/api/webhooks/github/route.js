@@ -144,3 +144,99 @@ export async function POST(req) {
 export async function GET() {
     return NextResponse.json({ status: "ok", message: "GitHub webhook endpoint ready" });
 }
+
+// PUT — Manual sync: scan GitHub repo and sync all document files
+export async function PUT(req) {
+    try {
+        const { project_id } = await req.json();
+        if (!project_id) return NextResponse.json({ error: "project_id required" }, { status: 400 });
+
+        // Get project with github_repo
+        const { data: project, error: pErr } = await supabase
+            .from("projects").select("id, title, github_repo").eq("id", project_id).single();
+        if (pErr || !project?.github_repo) {
+            return NextResponse.json({ error: "Project not found or no GitHub repo linked" }, { status: 400 });
+        }
+
+        const repo = project.github_repo; // e.g. "owner/repo"
+        const token = process.env.GITHUB_TOKEN || "";
+
+        // Fetch repo tree (recursive) via GitHub API
+        const headers = { "Accept": "application/vnd.github.v3+json", "User-Agent": "Libe-AI-OS" };
+        if (token) headers["Authorization"] = `token ${token}`;
+
+        const treeRes = await fetch(`https://api.github.com/repos/${repo}/git/trees/main?recursive=1`, { headers });
+        if (!treeRes.ok) {
+            // Try 'master' branch
+            const treeRes2 = await fetch(`https://api.github.com/repos/${repo}/git/trees/master?recursive=1`, { headers });
+            if (!treeRes2.ok) {
+                return NextResponse.json({ error: `GitHub API error: ${treeRes.status}` }, { status: 502 });
+            }
+            var treeData = await treeRes2.json();
+            var branch = "master";
+        } else {
+            var treeData = await treeRes.json();
+            var branch = "main";
+        }
+
+        // Filter document files
+        const docFiles = (treeData.tree || []).filter(f =>
+            f.type === "blob" && isDocumentFile(f.path)
+        );
+
+        if (docFiles.length === 0) {
+            return NextResponse.json({ ok: true, message: "No document files found in repo", files_synced: 0 });
+        }
+
+        // Get existing synced files for this project
+        const { data: existingFiles } = await supabase
+            .from("deliverable_files").select("file_url").eq("project_id", project_id);
+        const existingUrls = new Set((existingFiles || []).map(f => f.file_url));
+
+        const mimeTypes = {
+            pdf: "application/pdf", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            doc: "application/msword", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            xls: "application/vnd.ms-excel", pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            csv: "text/csv", md: "text/markdown", txt: "text/plain",
+            png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", svg: "image/svg+xml", webp: "image/webp",
+        };
+
+        const inserted = [];
+        for (const file of docFiles) {
+            const rawUrl = `https://raw.githubusercontent.com/${repo}/${branch}/${file.path}`;
+            if (existingUrls.has(rawUrl)) continue; // Skip duplicate
+
+            const filename = file.path.split("/").pop();
+            const ext = filename.split(".").pop()?.toLowerCase();
+
+            const { data: record, error } = await supabase
+                .from("deliverable_files")
+                .insert({
+                    filename,
+                    file_url: rawUrl,
+                    file_size: file.size || 0,
+                    file_type: mimeTypes[ext] || "application/octet-stream",
+                    checklist_label: `GitHub: ${file.path}`,
+                    project_id: project_id,
+                    module_id: null,
+                    deliverable_id: null,
+                })
+                .select()
+                .single();
+
+            if (!error && record) inserted.push(record);
+        }
+
+        return NextResponse.json({
+            ok: true,
+            project: project.title,
+            repo,
+            total_docs_in_repo: docFiles.length,
+            files_synced: inserted.length,
+            files: inserted.map(f => f.filename),
+        });
+    } catch (err) {
+        console.error("GitHub sync error:", err);
+        return NextResponse.json({ error: err.message }, { status: 500 });
+    }
+}
