@@ -139,7 +139,20 @@ export default function ProjectDetailPage({ params }) {
             setExpandedModule(moduleId);
             if (!checklists[moduleId]) loadChecklist(moduleId);
             loadFiles(moduleId);
+            // Scroll the module into view after expansion
+            setTimeout(() => {
+                const el = document.getElementById(`module-${moduleId}`);
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 100);
         }
+    };
+
+    const handleDeleteModule = async (moduleId, moduleTitle) => {
+        if (!confirm(`⚠️ Xóa module "${moduleTitle}"?\n\nSẽ xóa luôn tất cả checklist và deliverables liên quan. Không thể hoàn tác!`)) return;
+        try {
+            const res = await fetch(`/api/modules?id=${moduleId}`, { method: "DELETE" });
+            if (res.ok) reload();
+        } catch { }
     };
 
     const addModule = async () => {
@@ -511,7 +524,7 @@ export default function ProjectDetailPage({ params }) {
                     const canReview = isChairman && mod.status === "in_review";
 
                     return (
-                        <div key={mod.id} className="glass-card" style={{ marginBottom: 8, overflow: "hidden", borderColor: isExpanded ? "var(--border-active)" : undefined }}>
+                        <div key={mod.id} id={`module-${mod.id}`} className="glass-card" style={{ marginBottom: 8, overflow: "hidden", borderColor: isExpanded ? "var(--border-active)" : undefined }}>
                             {/* Module header */}
                             <div onClick={() => toggleModule(mod.id)} style={{ display: "flex", alignItems: "center", padding: "14px 18px", cursor: "pointer", gap: 12 }}>
                                 {isExpanded ? <ChevronDown size={ICO.md} color="var(--accent)" /> : <ChevronRight size={ICO.md} color="var(--text-muted)" />}
@@ -564,11 +577,28 @@ export default function ProjectDetailPage({ params }) {
                                         {mod.deadline && <span style={{ fontSize: 13, color: "var(--text-muted)" }}>📅 {new Date(mod.deadline).toLocaleDateString("vi-VN")}</span>}
                                     </div>
                                 </div>
-                                <div style={{ width: 100, display: "flex", alignItems: "center", gap: 8 }}>
-                                    <div style={{ flex: 1, height: 6, background: "var(--bg-tertiary)", borderRadius: 3, overflow: "hidden" }}>
-                                        <div style={{ height: "100%", width: `${mod.progress_pct}%`, background: mod.progress_pct === 100 ? "var(--green)" : "var(--accent)", borderRadius: 3, transition: "width 0.3s" }} />
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <div style={{ width: 80, display: "flex", alignItems: "center", gap: 6 }}>
+                                        <div style={{ flex: 1, height: 6, background: "var(--bg-tertiary)", borderRadius: 3, overflow: "hidden" }}>
+                                            <div style={{ height: "100%", width: `${mod.progress_pct}%`, background: mod.progress_pct === 100 ? "var(--green)" : "var(--accent)", borderRadius: 3, transition: "width 0.3s" }} />
+                                        </div>
+                                        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>{mod.progress_pct}%</span>
                                     </div>
-                                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-tertiary)" }}>{mod.progress_pct}%</span>
+                                    {isChairman && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteModule(mod.id, mod.title); }}
+                                            title="Xóa module"
+                                            style={{
+                                                background: "transparent", border: "none", cursor: "pointer",
+                                                color: "var(--text-muted)", padding: 4, borderRadius: 6,
+                                                display: "flex", alignItems: "center", transition: "all 0.2s",
+                                            }}
+                                            onMouseEnter={(e) => { e.target.style.color = "var(--red)"; e.target.style.background = "var(--red-bg)"; }}
+                                            onMouseLeave={(e) => { e.target.style.color = "var(--text-muted)"; e.target.style.background = "transparent"; }}
+                                        >
+                                            <Trash2 size={15} />
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 

@@ -1,4 +1,4 @@
-import { getModulesByProject, getModuleById, getAllModules, createModule, updateModule, createActivity, createNotification } from "@/lib/supabase";
+import { getModulesByProject, getModuleById, getAllModules, createModule, updateModule, deleteModule, createActivity, createNotification } from "@/lib/supabase";
 import { NextResponse } from "next/server";
 
 export async function GET(req) {
@@ -102,6 +102,18 @@ export async function PUT(req) {
 
         const mod = await updateModule(id, updates);
         return NextResponse.json(mod);
+    } catch (err) {
+        return NextResponse.json({ error: err.message }, { status: 500 });
+    }
+}
+
+export async function DELETE(req) {
+    try {
+        const { searchParams } = new URL(req.url);
+        const id = searchParams.get("id");
+        if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+        await deleteModule(id);
+        return NextResponse.json({ success: true });
     } catch (err) {
         return NextResponse.json({ error: err.message }, { status: 500 });
     }
