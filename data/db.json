@@ -261,7 +261,7 @@
       "owner": "toan",
       "assignedBy": "le",
       "project": "ibshi",
-      "status": "doing",
+      "status": "done",
       "priority": "critical",
       "deadline": "2026-03-12",
       "comments": [
@@ -272,8 +272,8 @@
         },
         {
           "author": "toan",
-          "text": "Đang trao đổi phòng kế toán, sẽ xong theo plan",
-          "ts": 1741777200000
+          "text": "Đã hoàn thành: 7 routers, 5 services, 101 tables PostgreSQL",
+          "ts": 1773101000000
         }
       ]
     },
@@ -294,7 +294,7 @@
         },
         {
           "author": "toan",
-          "text": "Đã implement websocket sync",
+          "text": "Đã implement websocket sync, material_master 6867 rows, vat_tu_giao_dich 39840 rows",
           "ts": 1741777200000
         }
       ]
@@ -305,7 +305,7 @@
       "owner": "toan",
       "assignedBy": "toan",
       "project": "ibshi",
-      "status": "doing",
+      "status": "done",
       "priority": "high",
       "deadline": "2026-03-09",
       "comments": [
@@ -313,6 +313,11 @@
           "author": "toan",
           "text": "Đã trao đổi phòng kế toán IBS HI, confirm quy trình",
           "ts": 1741780800000
+        },
+        {
+          "author": "toan",
+          "text": "Hoàn thành kết nối: cross-module data flow HCNS → Payroll verified",
+          "ts": 1773060000000
         }
       ]
     },
@@ -322,10 +327,138 @@
       "owner": "toan",
       "assignedBy": "phuong",
       "project": "ibshi",
-      "status": "doing",
+      "status": "done",
       "priority": "medium",
       "deadline": "2026-03-15",
-      "comments": []
+      "comments": [
+        {
+          "author": "toan",
+          "text": "Prototype đã build xong, tích hợp vào GoLive Portal",
+          "ts": 1773060000000
+        }
+      ]
+    },
+    {
+      "id": "T-041",
+      "title": "Module HCNS (Nhân sự) — 7 sub-modules",
+      "owner": "toan",
+      "assignedBy": "le",
+      "project": "ibshi",
+      "status": "done",
+      "priority": "critical",
+      "deadline": "2026-03-08",
+      "comments": [
+        {
+          "author": "toan",
+          "text": "Hoàn thành 7 tabs: Nhân viên (208), Hợp đồng LĐ, Chấm công, BHXH, Điều chỉnh lương, Tổ sản xuất, Báo cáo",
+          "ts": 1773020000000
+        },
+        {
+          "author": "toan",
+          "text": "RBAC R13 (hcns_staff, hcns_approver) phân quyền OK, R06 bị block truy cập đúng",
+          "ts": 1773040000000
+        }
+      ]
+    },
+    {
+      "id": "T-042",
+      "title": "Module Payroll (Lương) — 5 sub-modules + 10 bước duyệt",
+      "owner": "toan",
+      "assignedBy": "le",
+      "project": "ibshi",
+      "status": "done",
+      "priority": "critical",
+      "deadline": "2026-03-08",
+      "comments": [
+        {
+          "author": "toan",
+          "text": "Hoàn thành: Kỳ lương, Chi tiết lương (59 cột), Hợp đồng khoán, KL hoàn thành, Phê duyệt 10 bước",
+          "ts": 1773030000000
+        },
+        {
+          "author": "toan",
+          "text": "Tính lương tự động từ HCNS data: lương CB + phụ cấp + tăng ca - BHXH - thuế TNCN",
+          "ts": 1773050000000
+        }
+      ]
+    },
+    {
+      "id": "T-043",
+      "title": "Migrate SQLite → Supabase PostgreSQL",
+      "owner": "toan",
+      "assignedBy": "toan",
+      "project": "ibshi",
+      "status": "done",
+      "priority": "critical",
+      "deadline": "2026-03-08",
+      "comments": [
+        {
+          "author": "toan",
+          "text": "Migrated 101 tables, 78000+ rows từ SQLite → Supabase PostgreSQL (ap-southeast-2)",
+          "ts": 1773060000000
+        },
+        {
+          "author": "toan",
+          "text": "Fix Supabase auth.users conflict: rename app table → app_users, auto-rewrite in db.py",
+          "ts": 1773101000000
+        }
+      ]
+    },
+    {
+      "id": "T-044",
+      "title": "Deploy Vercel Serverless + CDN",
+      "owner": "toan",
+      "assignedBy": "toan",
+      "project": "ibshi",
+      "status": "done",
+      "priority": "critical",
+      "deadline": "2026-03-09",
+      "comments": [
+        {
+          "author": "toan",
+          "text": "Deploy thành công: @vercel/python serverless + CDN static. URL: backend-toans-projects-c66566e9.vercel.app",
+          "ts": 1773070000000
+        },
+        {
+          "author": "toan",
+          "text": "Fix env vars persistent, __pycache__ exclusion, users→app_users rewrite",
+          "ts": 1773101000000
+        }
+      ]
+    },
+    {
+      "id": "T-045",
+      "title": "Excel Export/Import chấm công",
+      "owner": "toan",
+      "assignedBy": "le",
+      "project": "ibshi",
+      "status": "done",
+      "priority": "high",
+      "deadline": "2026-03-08",
+      "comments": [
+        {
+          "author": "toan",
+          "text": "Export: styled xlsx (6 cột xanh NV + 14 cột vàng chấm công). Import: upsert + auto-calc tổng công",
+          "ts": 1773020000000
+        }
+      ]
+    },
+    {
+      "id": "T-046",
+      "title": "Git + GitHub + Vercel CI/CD",
+      "owner": "toan",
+      "assignedBy": "toan",
+      "project": "ibshi",
+      "status": "done",
+      "priority": "high",
+      "deadline": "2026-03-10",
+      "comments": [
+        {
+          "author": "toan",
+          "text": "Init Git → Push GitHub (toanduc1993-cmd/ibshi-erp, private) → Link Vercel auto-deploy on push",
+          "ts": 1773103000000
+        }
+      ]
     },
     {
       "id": "T-018",
@@ -558,9 +691,71 @@
       "text": "Chuyển T-003 → Hoàn thành",
       "project": "btnet",
       "taskId": "T-003"
+    },
+    {
+      "id": 1773020000001,
+      "ts": 1773020000000,
+      "user": "toan",
+      "type": "status",
+      "text": "Hoàn thành T-041: Module HCNS — 7 tabs, 208 nhân viên, RBAC R13",
+      "project": "ibshi",
+      "taskId": "T-041"
+    },
+    {
+      "id": 1773030000001,
+      "ts": 1773030000000,
+      "user": "toan",
+      "type": "status",
+      "text": "Hoàn thành T-042: Module Payroll — tính lương 59 cột, phê duyệt 10 bước",
+      "project": "ibshi",
+      "taskId": "T-042"
+    },
+    {
+      "id": 1773040000001,
+      "ts": 1773040000000,
+      "user": "toan",
+      "type": "ai_usage",
+      "text": "Dùng Claude Code: build HCNS + Payroll modules (7 routers, 5 services), Excel export/import openpyxl",
+      "project": "ibshi"
+    },
+    {
+      "id": 1773060000001,
+      "ts": 1773060000000,
+      "user": "toan",
+      "type": "status",
+      "text": "Hoàn thành T-043: Migrate 101 tables, 78K+ rows SQLite → Supabase PostgreSQL",
+      "project": "ibshi",
+      "taskId": "T-043"
+    },
+    {
+      "id": 1773070000001,
+      "ts": 1773070000000,
+      "user": "toan",
+      "type": "status",
+      "text": "Hoàn thành T-044: Deploy Vercel serverless + CDN, URL live: backend-toans-projects-c66566e9.vercel.app",
+      "project": "ibshi",
+      "taskId": "T-044"
+    },
+    {
+      "id": 1773101000001,
+      "ts": 1773101000000,
+      "user": "toan",
+      "type": "comment",
+      "text": "Fix Supabase auth.users conflict, tạo app_users table, set permanent env vars trên Vercel dashboard",
+      "project": "ibshi",
+      "taskId": "T-044"
+    },
+    {
+      "id": 1773103000001,
+      "ts": 1773103000000,
+      "user": "toan",
+      "type": "status",
+      "text": "Hoàn thành T-046: Git init → GitHub (toanduc1993-cmd/ibshi-erp) → Vercel auto-deploy linked",
+      "project": "ibshi",
+      "taskId": "T-046"
     }
   ],
-  "nextTaskNum": 41,
+  "nextTaskNum": 47,
   "workflow": {
     "steps": [
       {
