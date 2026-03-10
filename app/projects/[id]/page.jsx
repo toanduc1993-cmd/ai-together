@@ -62,6 +62,36 @@ export default function ProjectDetailPage({ params }) {
     const [editingObjective, setEditingObjective] = useState(false);
     const [objectiveText, setObjectiveText] = useState("");
     const [showAssignModal, setShowAssignModal] = useState(false);
+    const [reassigningModule, setReassigningModule] = useState(null);
+
+    const handleReassign = async (moduleId, newUserId) => {
+        setReassigningModule(null);
+        try {
+            const res = await fetch("/api/modules", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: moduleId, assigned_to: newUserId || null }),
+            });
+            if (res.ok) {
+                // Log activity
+                const assignee = users.find(u => u.id === newUserId);
+                const mod = modules.find(m => m.id === moduleId);
+                fetch("/api/activities", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        user_id: currentUser.id,
+                        action_type: "module_reassigned",
+                        entity_type: "module",
+                        entity_id: moduleId,
+                        detail: `Chuyển "${mod?.title}" → ${assignee?.display_name || "Chưa giao"}`,
+                        project_id: id,
+                    }),
+                }).catch(() => { });
+                reload();
+            }
+        } catch { }
+    };
 
     // Per-project chairman check — use project.chairman_id, not just global role
     const isChairman = project?.chairman_id === currentUser?.id || project?.lead_id === currentUser?.id || currentUser?.role === "chairman";
@@ -491,7 +521,46 @@ export default function ProjectDetailPage({ params }) {
                                     <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap" }}>
                                         <span style={{ fontSize: 12, fontWeight: 600, color: sc.color, background: `${sc.color}12`, padding: "2px 10px", borderRadius: 8 }}>{sc.label}</span>
                                         <span style={{ fontSize: 12, fontWeight: 600, color: pc.color, background: `${pc.color}12`, padding: "2px 10px", borderRadius: 8 }}>{pc.label}</span>
-                                        {mod.assignee && <span style={{ fontSize: 13, color: "var(--text-muted)" }}>👤 {mod.assignee.display_name}</span>}
+                                        {/* Assignee — clickable for chairman to reassign */}
+                                        {isChairman ? (
+                                            <span
+                                                onClick={(e) => { e.stopPropagation(); setReassigningModule(reassigningModule === mod.id ? null : mod.id); }}
+                                                style={{ fontSize: 13, color: "var(--accent)", cursor: "pointer", position: "relative", padding: "2px 10px", borderRadius: 8, background: "var(--accent-bg)", fontWeight: 600 }}
+                                            >
+                                                👤 {mod.assignee?.display_name || "Chưa giao"} ✏️
+                                                {reassigningModule === mod.id && (
+                                                    <div onClick={(e) => e.stopPropagation()} style={{
+                                                        position: "absolute", top: "100%", left: 0, marginTop: 4, zIndex: 100,
+                                                        background: "var(--bg-elevated)", border: "1px solid var(--border-primary)",
+                                                        borderRadius: 10, boxShadow: "var(--shadow-xl)", minWidth: 200, overflow: "hidden",
+                                                    }}>
+                                                        <div style={{ padding: "8px 12px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", borderBottom: "1px solid var(--border-primary)" }}>Chọn người nhận:</div>
+                                                        <div
+                                                            onClick={() => handleReassign(mod.id, null)}
+                                                            style={{ padding: "8px 14px", fontSize: 13, cursor: "pointer", color: "var(--text-secondary)", borderBottom: "1px solid var(--border-primary)" }}
+                                                            onMouseEnter={(e) => e.target.style.background = "var(--bg-tertiary)"}
+                                                            onMouseLeave={(e) => e.target.style.background = "transparent"}
+                                                        >— Chưa giao —</div>
+                                                        {users.map(u => (
+                                                            <div
+                                                                key={u.id}
+                                                                onClick={() => handleReassign(mod.id, u.id)}
+                                                                style={{
+                                                                    padding: "8px 14px", fontSize: 13, cursor: "pointer",
+                                                                    color: u.id === mod.assigned_to ? "var(--accent)" : "var(--text-primary)",
+                                                                    fontWeight: u.id === mod.assigned_to ? 700 : 400,
+                                                                    borderBottom: "1px solid var(--border-primary)",
+                                                                }}
+                                                                onMouseEnter={(e) => e.target.style.background = "var(--bg-tertiary)"}
+                                                                onMouseLeave={(e) => e.target.style.background = "transparent"}
+                                                            >{u.avatar} {u.display_name} {u.id === mod.assigned_to ? "✓" : ""}</div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </span>
+                                        ) : (
+                                            mod.assignee && <span style={{ fontSize: 13, color: "var(--text-muted)" }}>👤 {mod.assignee.display_name}</span>
+                                        )}
                                         {mod.deadline && <span style={{ fontSize: 13, color: "var(--text-muted)" }}>📅 {new Date(mod.deadline).toLocaleDateString("vi-VN")}</span>}
                                     </div>
                                 </div>
