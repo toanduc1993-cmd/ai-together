@@ -139,11 +139,19 @@ export default function ProjectDetailPage({ params }) {
             setExpandedModule(moduleId);
             if (!checklists[moduleId]) loadChecklist(moduleId);
             loadFiles(moduleId);
-            // Scroll the module into view after expansion
-            setTimeout(() => {
-                const el = document.getElementById(`module-${moduleId}`);
-                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-            }, 100);
+            // Scroll module into view after React re-renders the expanded content
+            requestAnimationFrame(() => {
+                setTimeout(() => {
+                    const el = document.getElementById(`module-${moduleId}`);
+                    if (el) {
+                        const rect = el.getBoundingClientRect();
+                        // Only scroll if the header is above the viewport
+                        if (rect.top < 0 || rect.top > window.innerHeight * 0.5) {
+                            window.scrollTo({ top: window.scrollY + rect.top - 80, behavior: "smooth" });
+                        }
+                    }
+                }, 150);
+            });
         }
     };
 
@@ -589,14 +597,15 @@ export default function ProjectDetailPage({ params }) {
                                             onClick={(e) => { e.stopPropagation(); handleDeleteModule(mod.id, mod.title); }}
                                             title="Xóa module"
                                             style={{
-                                                background: "transparent", border: "none", cursor: "pointer",
-                                                color: "var(--text-muted)", padding: 4, borderRadius: 6,
-                                                display: "flex", alignItems: "center", transition: "all 0.2s",
+                                                background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)",
+                                                cursor: "pointer", color: "#EF4444", padding: "4px 8px", borderRadius: 6,
+                                                display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600,
+                                                transition: "all 0.2s", flexShrink: 0,
                                             }}
-                                            onMouseEnter={(e) => { e.target.style.color = "var(--red)"; e.target.style.background = "var(--red-bg)"; }}
-                                            onMouseLeave={(e) => { e.target.style.color = "var(--text-muted)"; e.target.style.background = "transparent"; }}
+                                            onMouseEnter={(e) => { e.currentTarget.style.background = "#EF4444"; e.currentTarget.style.color = "#fff"; }}
+                                            onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.1)"; e.currentTarget.style.color = "#EF4444"; }}
                                         >
-                                            <Trash2 size={15} />
+                                            <Trash2 size={13} /> Xóa
                                         </button>
                                     )}
                                 </div>
