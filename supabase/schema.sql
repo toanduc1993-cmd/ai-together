@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS projects (
   lead_id UUID REFERENCES users(id),
   status TEXT DEFAULT 'active' CHECK (status IN ('draft','active','completed','archived')),
   deadline DATE,
+  github_repo TEXT DEFAULT NULL,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
