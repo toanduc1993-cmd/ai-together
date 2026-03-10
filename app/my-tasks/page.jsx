@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useUser } from "@/lib/UserContext";
 import Link from "next/link";
 import { Package, Clock, AlertTriangle, CheckCircle2, ChevronRight, Calendar, ArrowUpRight } from "lucide-react";
+import { fetchDashboard } from "@/lib/cache";
 
 const STATUS_CFG = {
     planned: { color: "#6366F1", label: "Kế hoạch", icon: "📋", bg: "#6366F118" },
@@ -34,52 +35,53 @@ export default function MyTasksPage() {
         loadMyTasks();
     }, [currentUser?.id]);
 
+    const processModules = (data) => {
+        const projects = Array.isArray(data.projects) ? data.projects : [];
+        const allMods = Array.isArray(data.modules) ? data.modules : [];
+        const myModules = [];
+        for (const mod of allMods) {
+            const proj = mod.project || projects.find(p => p.id === mod.project_id);
+            if (mod.assigned_to === currentUser.id) {
+                myModules.push({ ...mod, _project: proj });
+            } else if (proj && (proj.chairman_id === currentUser.id || proj.lead_id === currentUser.id) && mod.status === "in_review") {
+                myModules.push({ ...mod, _project: proj, _needsReview: true });
+            }
+        }
+        return myModules;
+    };
+
     const loadMyTasks = async () => {
         setLoading(true);
         try {
-            // 1 consolidated call instead of 25-40+ sequential calls
-            const res = await fetch(`/api/dashboard?user_id=${currentUser.id}`);
-            const data = await res.json();
-            const projects = Array.isArray(data.projects) ? data.projects : [];
-            const allMods = Array.isArray(data.modules) ? data.modules : [];
-
-            const myModules = [];
-            for (const mod of allMods) {
-                const proj = mod.project || projects.find(p => p.id === mod.project_id);
-                // Modules assigned to me
-                if (mod.assigned_to === currentUser.id) {
-                    myModules.push({ ...mod, _project: proj });
-                }
-                // Modules needing my review (I'm chairman/lead)
-                else if (proj && (proj.chairman_id === currentUser.id || proj.lead_id === currentUser.id) &&
-                    mod.status === "in_review") {
-                    myModules.push({ ...mod, _project: proj, _needsReview: true });
-                }
+            const { cached, fresh } = await fetchDashboard(currentUser.id);
+            // Instant render from cache
+            if (cached) {
+                setModules(processModules(cached));
+                setLoading(false);
             }
-            setModules(myModules);
+            // Then update with fresh data + fetch checklists
+            const data = await fresh;
+            if (data) {
+                const myModules = processModules(data);
+                setModules(myModules);
+                setLoading(false);
 
-            // Fetch checklists in parallel (not sequentially!)
-            const myAssigned = myModules.filter(m => m.assigned_to === currentUser.id);
-            if (myAssigned.length > 0) {
-                const checklistResults = await Promise.all(
-                    myAssigned.map(mod =>
-                        fetch(`/api/checklist?module_id=${mod.id}`)
-                            .then(r => r.json())
-                            .then(items => {
-                                const myItems = (Array.isArray(items) ? items : [])
-                                    .filter(t => t.assigned_to === currentUser.id);
-                                myItems.forEach(t => {
-                                    t._module = mod;
-                                    t._project = mod._project;
-                                });
-                                return myItems;
-                            })
-                            .catch(() => [])
-                    )
-                );
-                setChecklists(checklistResults.flat());
-            } else {
-                setChecklists([]);
+                // Fetch checklists in parallel
+                const myAssigned = myModules.filter(m => m.assigned_to === currentUser.id);
+                if (myAssigned.length > 0) {
+                    const results = await Promise.all(
+                        myAssigned.map(mod =>
+                            fetch(`/api/checklist?module_id=${mod.id}`)
+                                .then(r => r.json())
+                                .then(items => {
+                                    const myItems = (Array.isArray(items) ? items : []).filter(t => t.assigned_to === currentUser.id);
+                                    myItems.forEach(t => { t._module = mod; t._project = mod._project; });
+                                    return myItems;
+                                }).catch(() => [])
+                        )
+                    );
+                    setChecklists(results.flat());
+                }
             }
         } catch (err) {
             console.error(err);

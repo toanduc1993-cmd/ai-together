@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useUser } from "@/lib/UserContext";
+import { fetchDashboard } from "@/lib/cache";
 import { BarChart3, FolderKanban, Users, Clock, AlertTriangle, CheckCircle2, Target, TrendingUp, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
@@ -14,24 +15,22 @@ export default function AnalyticsPage() {
     const [selectedProject, setSelectedProject] = useState("all");
 
     useEffect(() => {
-        const load = async () => {
-            try {
-                // Single consolidated call
-                const res = await fetch("/api/dashboard");
-                const data = await res.json();
-
-                const prjs = Array.isArray(data.projects) ? data.projects : [];
-                setProjects(prjs);
-                setUsers(Array.isArray(data.users) ? data.users : []);
-                setActivities(Array.isArray(data.activities) ? data.activities : []);
-
-                const mods = (Array.isArray(data.modules) ? data.modules : []).map(m => ({
-                    ...m,
-                    _project: m.project || prjs.find(p => p.id === m.project_id),
-                }));
-                setAllModules(mods);
-            } catch { }
+        const applyData = (data) => {
+            const prjs = Array.isArray(data.projects) ? data.projects : [];
+            setProjects(prjs);
+            setUsers(Array.isArray(data.users) ? data.users : []);
+            setActivities(Array.isArray(data.activities) ? data.activities : []);
+            const mods = (Array.isArray(data.modules) ? data.modules : []).map(m => ({
+                ...m, _project: m.project || prjs.find(p => p.id === m.project_id),
+            }));
+            setAllModules(mods);
             setLoading(false);
+        };
+        const load = async () => {
+            const { cached, fresh } = await fetchDashboard();
+            if (cached) applyData(cached);
+            const freshData = await fresh;
+            if (freshData) applyData(freshData);
         };
         load();
     }, []);

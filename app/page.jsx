@@ -4,6 +4,7 @@ import { useUser } from "@/lib/UserContext";
 import { FolderKanban, ArrowRight, TrendingUp, Clock, Activity, CheckCircle2, AlertTriangle, Users, Package, Target, BarChart3 } from "lucide-react";
 import Link from "next/link";
 import TempoOverview from "@/components/TempoWidget";
+import { fetchDashboard } from "@/lib/cache";
 
 export default function DashboardPage() {
     const { currentUser, unreadCount } = useUser();
@@ -15,25 +16,27 @@ export default function DashboardPage() {
 
     useEffect(() => {
         if (!currentUser?.id) return;
-        const load = async () => {
-            try {
-                // Single consolidated request — replaces 4+ individual calls
-                const res = await fetch(`/api/dashboard?user_id=${currentUser.id}`);
-                const data = await res.json();
 
-                const prjs = Array.isArray(data.projects) ? data.projects : [];
-                setProjects(prjs);
-                setActivities(Array.isArray(data.activities) ? data.activities : []);
-                setUsers(Array.isArray(data.users) ? data.users : []);
-
-                // Attach project info to each module
-                const mods = (Array.isArray(data.modules) ? data.modules : []).map(m => ({
-                    ...m,
-                    _project: m.project || prjs.find(p => p.id === m.project_id),
-                }));
-                setAllModules(mods);
-            } catch { }
+        const applyData = (data) => {
+            const prjs = Array.isArray(data.projects) ? data.projects : [];
+            setProjects(prjs);
+            setActivities(Array.isArray(data.activities) ? data.activities : []);
+            setUsers(Array.isArray(data.users) ? data.users : []);
+            const mods = (Array.isArray(data.modules) ? data.modules : []).map(m => ({
+                ...m,
+                _project: m.project || prjs.find(p => p.id === m.project_id),
+            }));
+            setAllModules(mods);
             setLoading(false);
+        };
+
+        const load = async () => {
+            const { cached, fresh } = await fetchDashboard(currentUser.id);
+            // Instant render from cache
+            if (cached) applyData(cached);
+            // Then update with fresh data
+            const freshData = await fresh;
+            if (freshData) applyData(freshData);
         };
         load();
     }, [currentUser?.id]);

@@ -24,9 +24,17 @@ export default function Layout({ children }) {
     const [dark, setDark] = useState(false);
     const [myTaskCount, setMyTaskCount] = useState(0);
 
-    // Fetch task count from consolidated API — 1 call instead of 13+
+    // Fetch task count — instant from cache, then refresh
     useEffect(() => {
         if (!currentUser?.id) return;
+        // Instantly set from cache if available
+        try {
+            const raw = localStorage.getItem("ai_together_cache");
+            if (raw) {
+                const { data } = JSON.parse(raw);
+                if (data?.myTaskCount !== undefined) setMyTaskCount(data.myTaskCount);
+            }
+        } catch { }
         const fetchCount = async () => {
             try {
                 const res = await fetch(`/api/dashboard?user_id=${currentUser.id}`);
@@ -35,7 +43,7 @@ export default function Layout({ children }) {
             } catch { }
         };
         fetchCount();
-        const interval = setInterval(fetchCount, 60000); // 60s instead of 30s
+        const interval = setInterval(fetchCount, 60000);
         return () => clearInterval(interval);
     }, [currentUser?.id]);
 
