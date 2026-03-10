@@ -95,8 +95,8 @@ export default function Layout({ children }) {
                     </div>
                     {!collapsed && (
                         <div style={{ overflow: "hidden" }}>
-                            <div style={{ color: "var(--text-primary)", fontWeight: 800, fontSize: 18, letterSpacing: -0.3 }}>AI Together</div>
-                            <div style={{ color: "var(--accent)", fontSize: 10, fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase" }}>Libe Tech</div>
+                            <div style={{ color: "var(--text-primary)", fontWeight: 800, fontSize: 18, letterSpacing: -0.3 }}>Libe AI OS</div>
+                            <div style={{ color: "var(--accent)", fontSize: 10, fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase" }}>LIBE TECH</div>
                         </div>
                     )}
                 </div>

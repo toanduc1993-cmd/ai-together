@@ -52,7 +52,7 @@ export default function LoginPage() {
                     }}>
                         <Zap size={26} color="#fff" />
                     </div>
-                    <h1 style={{ color: "#F1F5F9", fontSize: 22, fontWeight: 800, marginBottom: 4, letterSpacing: -0.5 }}>AI Together</h1>
+                    <h1 style={{ color: "#F1F5F9", fontSize: 22, fontWeight: 800, marginBottom: 4, letterSpacing: -0.5 }}>Libe AI OS</h1>
                     <p style={{ color: "#94A3B8", fontSize: 13, fontWeight: 400 }}>Đăng nhập vào nền tảng cộng tác</p>
                 </div>
 
@@ -114,7 +114,7 @@ export default function LoginPage() {
                 </form>
 
                 <div style={{ textAlign: "center", marginTop: 24 }}>
-                    <span style={{ fontSize: 11, color: "#64748B" }}>Libe Tech © 2026 — AI Team Platform</span>
+                    <span style={{ fontSize: 11, color: "#64748B" }}>Libe Tech © 2026 — AI OS Platform</span>
                 </div>
             </div>
         </div>
