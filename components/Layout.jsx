@@ -24,7 +24,7 @@ export default function Layout({ children }) {
     const [dark, setDark] = useState(false);
     const [myTaskCount, setMyTaskCount] = useState(0);
 
-    // Fetch task count — instant from cache, then refresh
+    // Fetch task count — instant from cache, then refresh periodically
     useEffect(() => {
         if (!currentUser?.id) return;
         // Instantly set from cache if available
@@ -35,16 +35,20 @@ export default function Layout({ children }) {
                 if (data?.myTaskCount !== undefined) setMyTaskCount(data.myTaskCount);
             }
         } catch { }
+        // Only refresh periodically — Dashboard page handles the initial fetch
         const fetchCount = async () => {
             try {
                 const res = await fetch(`/api/dashboard?user_id=${currentUser.id}`);
                 const data = await res.json();
                 if (data.myTaskCount !== undefined) setMyTaskCount(data.myTaskCount);
+                // Update shared cache
+                try { localStorage.setItem("ai_together_cache", JSON.stringify({ data, ts: Date.now() })); } catch { }
             } catch { }
         };
-        fetchCount();
+        // Delay first fetch by 5s so it doesn't compete with the page's own fetch
+        const timeout = setTimeout(fetchCount, 5000);
         const interval = setInterval(fetchCount, 60000);
-        return () => clearInterval(interval);
+        return () => { clearTimeout(timeout); clearInterval(interval); };
     }, [currentUser?.id]);
 
     useEffect(() => {

@@ -14,8 +14,19 @@ export default function LoginPage() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError(""); setLoading(true);
-        const res = await login(username, password);
-        if (!res.success) { setError(res.error || "Đăng nhập thất bại"); setLoading(false); }
+        try {
+            const user = await login(username, password);
+            // Pre-warm dashboard cache immediately after login
+            // so Dashboard renders instantly without a second cold start
+            fetch(`/api/dashboard?user_id=${user.id}`)
+                .then(r => r.json())
+                .then(data => {
+                    try { localStorage.setItem("ai_together_cache", JSON.stringify({ data, ts: Date.now() })); } catch { }
+                });
+        } catch (err) {
+            setError(err.message || "Đăng nhập thất bại");
+            setLoading(false);
+        }
     };
 
     return (
