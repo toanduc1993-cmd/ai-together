@@ -24,32 +24,20 @@ export default function Layout({ children }) {
     const [dark, setDark] = useState(false);
     const [myTaskCount, setMyTaskCount] = useState(0);
 
-    // Fetch assigned module count for badge
+    // Fetch task count from consolidated API — 1 call instead of 13+
     useEffect(() => {
-        if (!currentUser) return;
+        if (!currentUser?.id) return;
         const fetchCount = async () => {
             try {
-                const pRes = await fetch("/api/projects").then(r => r.json());
-                const projects = Array.isArray(pRes) ? pRes : [];
-                let total = 0;
-                for (const p of projects) {
-                    const mRes = await fetch(`/api/modules?project_id=${p.id}`).then(r => r.json());
-                    const mods = Array.isArray(mRes) ? mRes : [];
-                    // Count assigned modules (not done)
-                    total += mods.filter(m => m.assigned_to === currentUser.id && m.status !== "done").length;
-                    // Count review modules (I'm chairman)
-                    const isProjectChairman = p.chairman_id === currentUser.id || p.lead_id === currentUser.id;
-                    if (isProjectChairman) {
-                        total += mods.filter(m => m.status === "in_review" && m.assigned_to !== currentUser.id).length;
-                    }
-                }
-                setMyTaskCount(total);
+                const res = await fetch(`/api/dashboard?user_id=${currentUser.id}`);
+                const data = await res.json();
+                if (data.myTaskCount !== undefined) setMyTaskCount(data.myTaskCount);
             } catch { }
         };
         fetchCount();
-        const interval = setInterval(fetchCount, 30000);
+        const interval = setInterval(fetchCount, 60000); // 60s instead of 30s
         return () => clearInterval(interval);
-    }, [currentUser]);
+    }, [currentUser?.id]);
 
     useEffect(() => {
         if (typeof window !== "undefined" && localStorage.getItem("theme") === "dark") setDark(true);

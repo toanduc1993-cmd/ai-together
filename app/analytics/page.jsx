@@ -16,20 +16,16 @@ export default function AnalyticsPage() {
     useEffect(() => {
         const load = async () => {
             try {
-                // Fetch ALL data in parallel — no more N+1
-                const [pRes, mRes, uRes, aRes] = await Promise.all([
-                    fetch("/api/projects").then(r => r.json()),
-                    fetch("/api/modules").then(r => r.json()),
-                    fetch("/api/users").then(r => r.json()),
-                    fetch("/api/activities").then(r => r.json()),
-                ]);
-                const prjs = Array.isArray(pRes) ? pRes : [];
-                setProjects(prjs);
-                setUsers(Array.isArray(uRes) ? uRes : []);
-                setActivities(Array.isArray(aRes) ? aRes : []);
+                // Single consolidated call
+                const res = await fetch("/api/dashboard");
+                const data = await res.json();
 
-                // Attach project info from the join
-                const mods = (Array.isArray(mRes) ? mRes : []).map(m => ({
+                const prjs = Array.isArray(data.projects) ? data.projects : [];
+                setProjects(prjs);
+                setUsers(Array.isArray(data.users) ? data.users : []);
+                setActivities(Array.isArray(data.activities) ? data.activities : []);
+
+                const mods = (Array.isArray(data.modules) ? data.modules : []).map(m => ({
                     ...m,
                     _project: m.project || prjs.find(p => p.id === m.project_id),
                 }));

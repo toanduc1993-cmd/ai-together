@@ -37,37 +37,50 @@ export default function MyTasksPage() {
     const loadMyTasks = async () => {
         setLoading(true);
         try {
-            // Load all projects first, then get modules assigned to user + modules needing chairman review
-            const projects = await fetch("/api/projects").then(r => r.json());
-            const allModules = [];
-            const allChecklists = [];
-            for (const proj of (Array.isArray(projects) ? projects : [])) {
-                const mods = await fetch(`/api/modules?project_id=${proj.id}`).then(r => r.json());
-                const modList = Array.isArray(mods) ? mods : [];
+            // 1 consolidated call instead of 25-40+ sequential calls
+            const res = await fetch(`/api/dashboard?user_id=${currentUser.id}`);
+            const data = await res.json();
+            const projects = Array.isArray(data.projects) ? data.projects : [];
+            const allMods = Array.isArray(data.modules) ? data.modules : [];
 
+            const myModules = [];
+            for (const mod of allMods) {
+                const proj = mod.project || projects.find(p => p.id === mod.project_id);
                 // Modules assigned to me
-                const myMods = modList.filter(m => m.assigned_to === currentUser.id);
-                myMods.forEach(m => { m._project = proj; });
-                allModules.push(...myMods);
-
-                // Modules needing my review (I'm chairman of this project and module is in_review)
-                const isProjectChairman = proj.chairman_id === currentUser.id || proj.lead_id === currentUser.id;
-                if (isProjectChairman) {
-                    const reviewMods = modList.filter(m => m.status === "in_review" && m.assigned_to !== currentUser.id && !myMods.includes(m));
-                    reviewMods.forEach(m => { m._project = proj; m._needsReview = true; });
-                    allModules.push(...reviewMods);
+                if (mod.assigned_to === currentUser.id) {
+                    myModules.push({ ...mod, _project: proj });
                 }
-
-                // Load checklists for my modules
-                for (const mod of myMods) {
-                    const items = await fetch(`/api/checklist?module_id=${mod.id}`).then(r => r.json());
-                    const myItems = (Array.isArray(items) ? items : []).filter(t => t.assigned_to === currentUser.id);
-                    myItems.forEach(t => { t._module = mod; t._project = proj; });
-                    allChecklists.push(...myItems);
+                // Modules needing my review (I'm chairman/lead)
+                else if (proj && (proj.chairman_id === currentUser.id || proj.lead_id === currentUser.id) &&
+                    mod.status === "in_review") {
+                    myModules.push({ ...mod, _project: proj, _needsReview: true });
                 }
             }
-            setModules(allModules);
-            setChecklists(allChecklists);
+            setModules(myModules);
+
+            // Fetch checklists in parallel (not sequentially!)
+            const myAssigned = myModules.filter(m => m.assigned_to === currentUser.id);
+            if (myAssigned.length > 0) {
+                const checklistResults = await Promise.all(
+                    myAssigned.map(mod =>
+                        fetch(`/api/checklist?module_id=${mod.id}`)
+                            .then(r => r.json())
+                            .then(items => {
+                                const myItems = (Array.isArray(items) ? items : [])
+                                    .filter(t => t.assigned_to === currentUser.id);
+                                myItems.forEach(t => {
+                                    t._module = mod;
+                                    t._project = mod._project;
+                                });
+                                return myItems;
+                            })
+                            .catch(() => [])
+                    )
+                );
+                setChecklists(checklistResults.flat());
+            } else {
+                setChecklists([]);
+            }
         } catch (err) {
             console.error(err);
         }
