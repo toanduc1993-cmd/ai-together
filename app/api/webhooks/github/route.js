@@ -14,6 +14,46 @@ function isDocumentFile(filename) {
     return DOC_EXTENSIONS.some(ext => lower.endsWith(ext));
 }
 
+/**
+ * Resolve module_id from file path by matching against module titles.
+ * Path pattern: docs/projects/{UUID}/filename.ext
+ * Matching: normalize filename → compare with module titles
+ * e.g. "platform_architecture.md" matches module "Platform Architecture"
+ */
+async function resolveModuleFromPath(filePath, projectId) {
+    // Extract project UUID from path if present
+    const uuidMatch = filePath.match(/docs\/projects\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\//i);
+    let resolvedProjectId = projectId;
+    if (uuidMatch) {
+        // Verify this UUID is actually a project
+        const { data: proj } = await supabase.from("projects").select("id").eq("id", uuidMatch[1]).single();
+        if (proj) resolvedProjectId = proj.id;
+    }
+
+    // Try to match filename against module titles
+    const filename = filePath.split("/").pop().replace(/\.[^.]+$/, ""); // Remove extension
+    const normalized = filename.toLowerCase().replace(/[-_]/g, " ").trim();
+
+    if (resolvedProjectId && normalized) {
+        const { data: modules } = await supabase
+            .from("modules")
+            .select("id, title")
+            .eq("project_id", resolvedProjectId);
+
+        if (modules && modules.length > 0) {
+            for (const mod of modules) {
+                const modNormalized = mod.title.toLowerCase().replace(/[-_]/g, " ").trim();
+                // Check if filename contains module title or vice versa
+                if (normalized.includes(modNormalized) || modNormalized.includes(normalized)) {
+                    return { projectId: resolvedProjectId, moduleId: mod.id };
+                }
+            }
+        }
+    }
+
+    return { projectId: resolvedProjectId, moduleId: null };
+}
+
 function verifySignature(payload, signature, secret) {
     if (!secret || !signature) return !secret; // Skip if no secret configured
     const hmac = createHmac("sha256", secret);
@@ -89,11 +129,14 @@ export async function POST(req) {
         for (const [path, { filename }] of docFiles) {
             const rawUrl = `https://raw.githubusercontent.com/${repoFullName}/${defaultBranch}/${path}`;
 
+            // Resolve which module this file belongs to
+            const resolved = await resolveModuleFromPath(path, project.id);
+
             // Check if this file already exists for this project (avoid duplicates)
             const { data: existing } = await supabase
                 .from("deliverable_files")
                 .select("id")
-                .eq("project_id", project.id)
+                .eq("project_id", resolved.projectId)
                 .eq("filename", filename)
                 .eq("file_url", rawUrl)
                 .limit(1);
@@ -117,9 +160,9 @@ export async function POST(req) {
                     file_url: rawUrl,
                     file_size: 0,
                     file_type: mimeTypes[ext] || "application/octet-stream",
-                    checklist_label: `GitHub: ${path}`,
-                    project_id: project.id,
-                    module_id: null,
+                    checklist_label: resolved.moduleId ? `GitHub (auto-linked): ${path}` : `GitHub: ${path}`,
+                    project_id: resolved.projectId,
+                    module_id: resolved.moduleId,
                     deliverable_id: null,
                 })
                 .select()
@@ -209,6 +252,9 @@ export async function PUT(req) {
             const filename = file.path.split("/").pop();
             const ext = filename.split(".").pop()?.toLowerCase();
 
+            // Resolve module from path
+            const resolved = await resolveModuleFromPath(file.path, project_id);
+
             const { data: record, error } = await supabase
                 .from("deliverable_files")
                 .insert({
@@ -216,9 +262,9 @@ export async function PUT(req) {
                     file_url: rawUrl,
                     file_size: file.size || 0,
                     file_type: mimeTypes[ext] || "application/octet-stream",
-                    checklist_label: `GitHub: ${file.path}`,
-                    project_id: project_id,
-                    module_id: null,
+                    checklist_label: resolved.moduleId ? `GitHub (auto-linked): ${file.path}` : `GitHub: ${file.path}`,
+                    project_id: resolved.projectId,
+                    module_id: resolved.moduleId,
                     deliverable_id: null,
                 })
                 .select()

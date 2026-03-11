@@ -68,6 +68,7 @@ export default function ProjectDetailPage({ params }) {
     const [repoSaving, setRepoSaving] = useState(false);
     const [syncing, setSyncing] = useState(false);
     const [syncResult, setSyncResult] = useState(null);
+    const [statusDropdownModule, setStatusDropdownModule] = useState(null);
 
     const handleReassign = async (moduleId, newUserId) => {
         setReassigningModule(null);
@@ -656,7 +657,79 @@ export default function ProjectDetailPage({ params }) {
                                 <div style={{ flex: 1 }}>
                                     <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)" }}>{mod.title}</div>
                                     <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap" }}>
-                                        <span style={{ fontSize: 12, fontWeight: 600, color: sc.color, background: `${sc.color}12`, padding: "2px 10px", borderRadius: 8 }}>{sc.label}</span>
+                                        {/* Status badge — clickable dropdown for authorized users */}
+                                        {(() => {
+                                            const ownerTransitions = {
+                                                planned: ["in_progress"],
+                                                in_progress: ["in_review"],
+                                                changes_requested: ["in_progress", "in_review"],
+                                            };
+                                            const chairmanTransitions = {
+                                                planned: ["in_progress"],
+                                                in_progress: ["in_review"],
+                                                in_review: ["approved", "changes_requested", "done"],
+                                                approved: ["done"],
+                                                changes_requested: ["in_progress", "in_review"],
+                                                done: [],
+                                            };
+                                            const transitions = isChairman
+                                                ? (chairmanTransitions[mod.status] || [])
+                                                : isOwner
+                                                    ? (ownerTransitions[mod.status] || [])
+                                                    : [];
+                                            const showDropdown = statusDropdownModule === mod.id;
+                                            return (
+                                                <span
+                                                    onClick={(e) => {
+                                                        if (transitions.length === 0) return;
+                                                        e.stopPropagation();
+                                                        setStatusDropdownModule(showDropdown ? null : mod.id);
+                                                    }}
+                                                    style={{
+                                                        fontSize: 12, fontWeight: 600, color: sc.color,
+                                                        background: `${sc.color}12`, padding: "2px 10px", borderRadius: 8,
+                                                        cursor: transitions.length > 0 ? "pointer" : "default",
+                                                        position: "relative", userSelect: "none",
+                                                    }}
+                                                >
+                                                    {sc.label} {transitions.length > 0 && "▾"}
+                                                    {showDropdown && transitions.length > 0 && (
+                                                        <div onClick={(e) => e.stopPropagation()} style={{
+                                                            position: "absolute", top: "100%", left: 0, marginTop: 4, zIndex: 100,
+                                                            background: "var(--bg-elevated)", border: "1px solid var(--border-primary)",
+                                                            borderRadius: 10, boxShadow: "var(--shadow-xl)", minWidth: 180, overflow: "hidden",
+                                                        }}>
+                                                            <div style={{ padding: "6px 12px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", borderBottom: "1px solid var(--border-primary)" }}>Chuyển trạng thái:</div>
+                                                            {transitions.map(s => {
+                                                                const cfg = STATUS_CFG[s] || { color: "var(--text-muted)", label: s, icon: "📋" };
+                                                                return (
+                                                                    <div
+                                                                        key={s}
+                                                                        onClick={async () => {
+                                                                            setStatusDropdownModule(null);
+                                                                            if (s === "changes_requested" && isChairman) {
+                                                                                setForm({}); setShowReview(mod.id); setError("");
+                                                                            } else {
+                                                                                await updateModuleStatus(mod.id, s);
+                                                                            }
+                                                                        }}
+                                                                        style={{
+                                                                            padding: "8px 14px", fontSize: 13, cursor: "pointer",
+                                                                            display: "flex", alignItems: "center", gap: 8,
+                                                                            color: cfg.color, borderBottom: "1px solid var(--border-primary)",
+                                                                        }}
+                                                                        onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-tertiary)"}
+                                                                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                                                                    >
+                                                                        <span>{cfg.icon}</span> {cfg.label}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                </span>
+                                            );
+                                        })()}
                                         <span style={{ fontSize: 12, fontWeight: 600, color: pc.color, background: `${pc.color}12`, padding: "2px 10px", borderRadius: 8 }}>{pc.label}</span>
                                         {/* Assignee — clickable for chairman to reassign */}
                                         {isChairman ? (
@@ -771,8 +844,8 @@ export default function ProjectDetailPage({ params }) {
                                         {canReview && (
                                             <ActionBtn label="👀 Xem & Duyệt" bgColor="#6366F1" onClick={(e) => { e.stopPropagation(); setForm({}); setShowReview(mod.id); setError(""); }} />
                                         )}
-                                        {/* Chairman: đính kèm tài liệu nghiệp vụ */}
-                                        {isChairman && (mod.status === "planned" || mod.status === "in_progress") && (
+                                        {/* Chairman or Assignee: đính kèm tài liệu */}
+                                        {(isChairman || isOwner) && (mod.status === "planned" || mod.status === "in_progress" || mod.status === "changes_requested") && (
                                             <ActionBtn label="📎 Đính kèm tài liệu" bgColor="#06B6D4" onClick={(e) => {
                                                 e.stopPropagation();
                                                 const input = document.createElement("input");
