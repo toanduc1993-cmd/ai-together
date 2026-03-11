@@ -29,36 +29,13 @@ export default function LoginPage() {
 
     return (
         <div className="login-page">
-            {/* Left side — Illustration */}
+            {/* Left side — Hero Image */}
             <div className="login-left">
-                <div className="login-left-content">
-                    <div className="login-brand">
-                        <div className="login-brand-icon">
-                            <Zap size={28} color="#fff" />
-                        </div>
-                        <h1 className="login-brand-title">Libe AI OS</h1>
-                    </div>
-                    <p className="login-tagline">Nền tảng cộng tác thông minh<br />cho đội ngũ của bạn</p>
-                    <img
-                        src="/login_illustration.png"
-                        alt="AI Together — Cộng tác cùng AI"
-                        className="login-illustration"
-                    />
-                    <div className="login-features">
-                        <div className="login-feature-item">
-                            <span className="login-feature-dot" style={{ background: "#6366F1" }} />
-                            Quản lý dự án thông minh
-                        </div>
-                        <div className="login-feature-item">
-                            <span className="login-feature-dot" style={{ background: "#10B981" }} />
-                            Theo dõi hiệu suất real-time
-                        </div>
-                        <div className="login-feature-item">
-                            <span className="login-feature-dot" style={{ background: "#8B5CF6" }} />
-                            AI hỗ trợ cộng tác
-                        </div>
-                    </div>
-                </div>
+                <img
+                    src="/login_hero.jpg"
+                    alt="AI Together — Nền tảng cộng tác thông minh cho đội ngũ của bạn"
+                    className="login-hero-img"
+                />
             </div>
 
             {/* Right side — Login Form */}
