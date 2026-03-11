@@ -389,11 +389,11 @@ button:active {
   align-items: center;
   justify-content: center;
   padding: 48px;
-  background: linear-gradient(160deg, #F0EBE3 0%, #F7F4EF 40%, #FAF8F5 100%);
+  background: linear-gradient(160deg, #E8E4F0 0%, #EEEAF5 30%, #F3F1F8 60%, #F8F7FA 100%);
 }
 
 [data-theme="dark"] .login-right {
-  background: linear-gradient(160deg, #1F1912 0%, #151B23 40%, #0F1419 100%);
+  background: linear-gradient(160deg, #18142A 0%, #151B23 40%, #0F1419 100%);
 }
 
 .login-form-wrapper {
