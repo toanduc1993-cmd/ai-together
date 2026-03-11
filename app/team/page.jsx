@@ -46,8 +46,8 @@ export default function TeamPage() {
         <div className="fade-in">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
                 <div>
-                    <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--text-primary)", letterSpacing: -0.3 }}>👥 Team</h1>
-                    <p style={{ color: "var(--text-tertiary)", fontSize: 13, marginTop: 4 }}>{users.length} thành viên</p>
+                    <h1 style={{ fontSize: 24, fontWeight: 800, color: "var(--text-primary)", letterSpacing: -0.3 }}>👥 Team</h1>
+                    <p style={{ color: "var(--text-tertiary)", fontSize: 14, marginTop: 4 }}>{users.length} thành viên</p>
                 </div>
                 {isChairman && (
                     <button onClick={() => { setEditUser(null); setForm({ username: "", password: "123456", display_name: "", email: "", role: "developer" }); setShowAdd(true); }}
@@ -70,21 +70,21 @@ export default function TeamPage() {
                                         boxShadow: "0 2px 12px rgba(99, 102, 241, 0.2)",
                                     }}>{u.avatar}</div>
                                     <div>
-                                        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>{u.display_name}</div>
-                                        <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 500 }}>@{u.username}</div>
+                                        <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>{u.display_name}</div>
+                                        <div style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 500 }}>@{u.username}</div>
                                     </div>
                                 </div>
-                                <span style={{ fontSize: 10, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: rc.bg, color: rc.color }}>{rc.label}</span>
+                                <span style={{ fontSize: 12, fontWeight: 600, padding: "3px 12px", borderRadius: 20, background: rc.bg, color: rc.color }}>{rc.label}</span>
                             </div>
 
-                            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                            <div style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
                                 <span style={{ fontSize: 14 }}>📧</span> {u.email}
                             </div>
-                            {u.bio && <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 8 }}>{u.bio}</div>}
+                            {u.bio && <div style={{ fontSize: 13, color: "var(--text-tertiary)", marginBottom: 8 }}>{u.bio}</div>}
 
                             {isChairman && (
                                 <div style={{ display: "flex", gap: 6, marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border-primary)" }}>
-                                    <button onClick={() => openEdit(u)} className="btn-ghost" style={{ flex: 1, padding: "7px", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, fontSize: 12 }}>
+                                    <button onClick={() => openEdit(u)} className="btn-ghost" style={{ flex: 1, padding: "7px", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, fontSize: 13 }}>
                                         <Pencil size={13} /> Sửa
                                     </button>
                                     <button onClick={() => del(u.id)} style={{

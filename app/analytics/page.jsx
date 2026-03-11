@@ -113,11 +113,11 @@ export default function AnalyticsPage() {
             {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                 <div>
-                    <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--text-primary)", letterSpacing: -0.3 }}>📊 Báo cáo chi tiết</h1>
-                    <p style={{ color: "var(--text-tertiary)", fontSize: 13, marginTop: 4 }}>Phân tích chi tiết theo dự án, nhân sự và deadline</p>
+                    <h1 style={{ fontSize: 24, fontWeight: 800, color: "var(--text-primary)", letterSpacing: -0.3 }}>📊 Báo cáo chi tiết</h1>
+                    <p style={{ color: "var(--text-tertiary)", fontSize: 14, marginTop: 4 }}>Phân tích chi tiết theo dự án, nhân sự và deadline</p>
                 </div>
                 <select value={selectedProject} onChange={e => setSelectedProject(e.target.value)} style={{
-                    padding: "8px 14px", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer",
+                    padding: "8px 14px", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "pointer",
                     background: "var(--bg-elevated)", color: "var(--text-primary)", border: "1px solid var(--border-primary)",
                 }}>
                     <option value="all">📁 Tất cả dự án</option>
@@ -145,9 +145,9 @@ export default function AnalyticsPage() {
                                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                         <span style={{ fontSize: 18 }}>{wu.user?.avatar || "👤"}</span>
-                                        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{wu.user?.display_name || "—"}</span>
+                                        <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>{wu.user?.display_name || "—"}</span>
                                     </div>
-                                    <div style={{ display: "flex", gap: 6, fontSize: 11 }}>
+                                    <div style={{ display: "flex", gap: 6, fontSize: 12 }}>
                                         <Tag label={`${wu.done} xong`} color="#10B981" />
                                         <Tag label={`${wu.inProgress} đang`} color="#F59E0B" />
                                         {wu.overdue > 0 && <Tag label={`${wu.overdue} trễ`} color="#EF4444" />}
@@ -160,7 +160,7 @@ export default function AnalyticsPage() {
                                     {wu.review > 0 && <div style={{ width: `${(wu.review / maxWorkload) * 100}%`, background: "#8B5CF6" }} title={`Duyệt: ${wu.review}`} />}
                                     {(wu.total - wu.done - wu.inProgress - wu.review) > 0 && <div style={{ width: `${((wu.total - wu.done - wu.inProgress - wu.review) / maxWorkload) * 100}%`, background: "#6366F140" }} title="Kế hoạch" />}
                                 </div>
-                                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                                <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>
                                     {wu.total} modules — hoàn thành {wu.rate}%
                                 </div>
                             </div>
@@ -179,17 +179,17 @@ export default function AnalyticsPage() {
                         {projectStats.map((ps, i) => (
                             <Link key={ps.project.id} href={`/projects/${ps.project.id}`} style={{ textDecoration: "none", display: "block", padding: "10px 0", borderBottom: i < projectStats.length - 1 ? "1px solid var(--border-primary)" : "none" }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                                    <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{ps.project.title}</span>
+                                    <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>{ps.project.title}</span>
                                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                                         {ps.overdue > 0 && <Tag label={`${ps.overdue} trễ`} color="#EF4444" />}
-                                        <span style={{ fontSize: 13, fontWeight: 700, color: ps.pct === 100 ? "#10B981" : "var(--text-tertiary)" }}>{ps.pct}%</span>
+                                        <span style={{ fontSize: 14, fontWeight: 700, color: ps.pct === 100 ? "#10B981" : "var(--text-tertiary)" }}>{ps.pct}%</span>
                                     </div>
                                 </div>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                     <div style={{ flex: 1, height: 8, background: "var(--bg-tertiary)", borderRadius: 4, overflow: "hidden" }}>
                                         <div style={{ height: "100%", width: `${ps.pct}%`, background: ps.pct === 100 ? "#10B981" : "#6366F1", borderRadius: 4, transition: "width 0.6s" }} />
                                     </div>
-                                    <span style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap" }}>{ps.done}/{ps.total}</span>
+                                    <span style={{ fontSize: 13, color: "var(--text-muted)", whiteSpace: "nowrap" }}>{ps.done}/{ps.total}</span>
                                 </div>
                             </Link>
                         ))}
@@ -263,10 +263,10 @@ export default function AnalyticsPage() {
                                 return (
                                     <Link key={m.id} href={`/projects/${m._project?.id}`} style={{ textDecoration: "none", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #EF444415" }}>
                                         <div>
-                                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{m.title}</div>
-                                            <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{assignee?.display_name || "—"} • {m._project?.title}</div>
+                                            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>{m.title}</div>
+                                            <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{assignee?.display_name || "—"} • {m._project?.title}</div>
                                         </div>
-                                        <span style={{ fontSize: 12, fontWeight: 700, color: "#EF4444", whiteSpace: "nowrap" }}>Trễ {daysLate}d</span>
+                                        <span style={{ fontSize: 13, fontWeight: 700, color: "#EF4444", whiteSpace: "nowrap" }}>Trễ {daysLate}d</span>
                                     </Link>
                                 );
                             })}
@@ -286,8 +286,8 @@ function KPI({ icon, label, value, color, alert }) {
         }}>
             <div style={{ width: 40, height: 40, borderRadius: 10, background: `${color}15`, color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{icon}</div>
             <div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: "var(--text-primary)", lineHeight: 1 }}>{value}</div>
-                <div style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 500, marginTop: 3 }}>{label}</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: "var(--text-primary)", lineHeight: 1 }}>{value}</div>
+                <div style={{ fontSize: 13, color: "var(--text-tertiary)", fontWeight: 500, marginTop: 3 }}>{label}</div>
             </div>
         </div>
     );
@@ -300,8 +300,8 @@ function Panel({ title, sub, children, alert }) {
             border: `1px solid ${alert ? "#EF444430" : "var(--border-primary)"}`,
             padding: "20px 22px", marginBottom: 16, boxShadow: "var(--shadow-xs)",
         }}>
-            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: alert ? "#EF4444" : "var(--text-primary)" }}>{title}</h3>
-            {sub && <p style={{ margin: "4px 0 14px", fontSize: 12, color: "var(--text-muted)" }}>{sub}</p>}
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: alert ? "#EF4444" : "var(--text-primary)" }}>{title}</h3>
+            {sub && <p style={{ margin: "4px 0 14px", fontSize: 13, color: "var(--text-muted)" }}>{sub}</p>}
             {!sub && <div style={{ marginBottom: 14 }} />}
             {children}
         </div>
@@ -309,9 +309,9 @@ function Panel({ title, sub, children, alert }) {
 }
 
 function Tag({ label, color }) {
-    return <span style={{ fontSize: 11, fontWeight: 600, color, background: `${color}15`, padding: "2px 8px", borderRadius: 6 }}>{label}</span>;
+    return <span style={{ fontSize: 12, fontWeight: 600, color, background: `${color}15`, padding: "2px 8px", borderRadius: 6 }}>{label}</span>;
 }
 
 function Empty() {
-    return <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>Chưa có dữ liệu</div>;
+    return <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>Chưa có dữ liệu</div>;
 }

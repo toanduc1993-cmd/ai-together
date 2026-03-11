@@ -43,15 +43,15 @@ export default function LeaderboardPage() {
             {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
                 <div>
-                    <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--text-primary)", letterSpacing: -0.3 }}>🏆 Leaderboard</h1>
-                    <p style={{ color: "var(--text-tertiary)", fontSize: 12, marginTop: 4 }}>
+                    <h1 style={{ fontSize: 24, fontWeight: 800, color: "var(--text-primary)", letterSpacing: -0.3 }}>🏆 Leaderboard</h1>
+                    <p style={{ color: "var(--text-tertiary)", fontSize: 14, marginTop: 4 }}>
                         Composite = Delivery (30%) + Quality (25%) + Speed (20%) + Consistency (15%) + Collab (10%)
                     </p>
                 </div>
                 <div style={{ display: "flex", gap: 4 }}>
                     {[{ v: "weekly", l: "Tuần" }, { v: "monthly", l: "Tháng" }].map(x => (
                         <button key={x.v} onClick={() => setPeriod(x.v)} style={{
-                            padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                            padding: "8px 18px", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "pointer",
                             background: period === x.v ? "var(--accent-bg)" : "var(--bg-tertiary)",
                             color: period === x.v ? "var(--accent)" : "var(--text-tertiary)",
                             border: period === x.v ? "1px solid var(--border-active)" : "1px solid var(--border-primary)",
@@ -66,11 +66,11 @@ export default function LeaderboardPage() {
                     <div key={key} style={{
                         display: "flex", alignItems: "center", gap: 8,
                         background: `${m.color}10`, border: `1px solid ${m.color}30`,
-                        borderRadius: 10, padding: "6px 14px", fontSize: 12,
+                        borderRadius: 10, padding: "6px 14px", fontSize: 13,
                     }}>
                         <span>{m.emoji}</span>
                         <span style={{ fontWeight: 700, color: m.color }}>{m.label}</span>
-                        <span style={{ color: "var(--text-muted)", fontSize: 11 }}>{m.desc}</span>
+                        <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{m.desc}</span>
                     </div>
                 ))}
             </div>
@@ -91,8 +91,8 @@ export default function LeaderboardPage() {
                                     }}>{s.user?.avatar}</div>
                                     <div style={{ position: "absolute", top: -6, right: "calc(50% - 28px)", fontSize: 20 }}>{MEDALS[idx]}</div>
                                 </div>
-                                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 2 }}>{s.user?.display_name}</div>
-                                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>@{s.user?.username}</div>
+                                <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 2 }}>{s.user?.display_name}</div>
+                                <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 8 }}>@{s.user?.username}</div>
                                 <div style={{
                                     height: PODIUM_HEIGHTS[idx], borderRadius: "12px 12px 0 0",
                                     background: PODIUM_BG[idx], display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
@@ -114,7 +114,7 @@ export default function LeaderboardPage() {
                             {["#", "Thành viên", "📦 Delivery", "✅ Quality", "⏱️ Speed", "🔥 Consistency", "💬 Collab", "Composite", "Streak"].map(h => (
                                 <th key={h} style={{
                                     padding: "12px 12px", textAlign: h === "Thành viên" ? "left" : "center",
-                                    fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)",
+                                    fontSize: 12, fontWeight: 600, color: "var(--text-tertiary)",
                                     textTransform: "uppercase", letterSpacing: 0.4,
                                 }}>{h}</th>
                             ))}
@@ -133,7 +133,7 @@ export default function LeaderboardPage() {
                             return (
                                 <tr key={i} style={{ borderBottom: "1px solid var(--border-primary)", background: isMe ? "var(--accent-bg)" : "transparent" }}>
                                     <td style={cellStyle}>
-                                        <span style={{ fontWeight: 700, fontSize: 13, color: i < 3 ? "var(--amber)" : "var(--text-muted)" }}>
+                                        <span style={{ fontWeight: 700, fontSize: 14, color: i < 3 ? "var(--amber)" : "var(--text-muted)" }}>
                                             {i < 3 ? MEDALS[i] : i + 1}
                                         </span>
                                     </td>
@@ -141,10 +141,10 @@ export default function LeaderboardPage() {
                                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                             <span style={{ fontSize: 20 }}>{s.user?.avatar}</span>
                                             <div>
-                                                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
-                                                    {s.user?.display_name} {isMe && <span style={{ fontSize: 10, color: "var(--accent)", fontWeight: 500 }}>(bạn)</span>}
+                                                <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>
+                                                    {s.user?.display_name} {isMe && <span style={{ fontSize: 12, color: "var(--accent)", fontWeight: 500 }}>(bạn)</span>}
                                                 </div>
-                                                <div style={{ fontSize: 10, color: "var(--text-muted)" }}>@{s.user?.username}</div>
+                                                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>@{s.user?.username}</div>
                                             </div>
                                         </div>
                                     </td>
@@ -153,10 +153,10 @@ export default function LeaderboardPage() {
                                     <td style={cellStyle}><ScoreCell value={speed} color="#06B6D4" /></td>
                                     <td style={cellStyle}><ScoreCell value={consistency} color="#F59E0B" /></td>
                                     <td style={cellStyle}><ScoreCell value={collab} color="#8B5CF6" /></td>
-                                    <td style={{ ...cellStyle, fontSize: 18, fontWeight: 800, color: "var(--text-primary)" }}>
+                                    <td style={{ ...cellStyle, fontSize: 22, fontWeight: 800, color: "var(--text-primary)" }}>
                                         {Number(s.composite).toFixed(0)}
                                     </td>
-                                    <td style={{ ...cellStyle, fontSize: 13, fontWeight: 600 }}>
+                                    <td style={{ ...cellStyle, fontSize: 14, fontWeight: 600 }}>
                                         {s.streak > 0 ? <span style={{ color: "var(--amber)" }}>🔥 {s.streak}</span> : <span style={{ color: "var(--text-muted)" }}>—</span>}
                                     </td>
                                 </tr>
@@ -177,7 +177,7 @@ function ScoreCell({ value, color }) {
             <div style={{ width: 40, height: 6, background: "var(--bg-tertiary)", borderRadius: 3, overflow: "hidden" }}>
                 <div style={{ height: "100%", width: `${v}%`, background: displayColor, borderRadius: 3, transition: "width 0.6s" }} />
             </div>
-            <span style={{ fontSize: 12, fontWeight: 700, color: displayColor, minWidth: 24, textAlign: "right" }}>{v}</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: displayColor, minWidth: 24, textAlign: "right" }}>{v}</span>
         </div>
     );
 }

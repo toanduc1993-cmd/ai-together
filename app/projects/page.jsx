@@ -100,15 +100,15 @@ export default function ProjectsPage() {
     };
     const isOverdue = (d) => d && new Date(d) < new Date();
 
-    if (loading) return <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>Đang tải...</div>;
+    if (loading) return <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>Đang tải...</div>;
 
     return (
         <div className="fade-in">
             {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                 <div>
-                    <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--text-primary)", letterSpacing: -0.3, margin: 0 }}>Projects</h1>
-                    <p style={{ color: "var(--text-tertiary)", fontSize: 13, marginTop: 4 }}>{filtered.length} / {projects.length} dự án</p>
+                    <h1 style={{ fontSize: 24, fontWeight: 800, color: "var(--text-primary)", letterSpacing: -0.3, margin: 0 }}>Projects</h1>
+                    <p style={{ color: "var(--text-tertiary)", fontSize: 14, marginTop: 4 }}>{filtered.length} / {projects.length} dự án</p>
                 </div>
                 {isChairman && (
                     <button onClick={() => setShowCreate(true)} className="btn-primary" style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -131,7 +131,7 @@ export default function ProjectsPage() {
                         style={{
                             width: "100%", padding: "9px 12px 9px 36px", borderRadius: 10,
                             border: "1px solid var(--border-primary)", background: "var(--bg-tertiary)",
-                            color: "var(--text-primary)", fontSize: 13, outline: "none",
+                            color: "var(--text-primary)", fontSize: 14, outline: "none",
                             boxSizing: "border-box",
                         }}
                     />
@@ -150,7 +150,7 @@ export default function ProjectsPage() {
                                     padding: "6px 14px", borderRadius: 20, border: "none",
                                     background: active ? "var(--accent)" : "var(--bg-tertiary)",
                                     color: active ? "#fff" : "var(--text-secondary)",
-                                    fontSize: 12, fontWeight: 600, cursor: "pointer",
+                                    fontSize: 14, fontWeight: 600, cursor: "pointer",
                                     transition: "all 0.2s",
                                 }}
                             >
@@ -183,10 +183,10 @@ export default function ProjectsPage() {
                     <div style={{ width: 56, height: 56, borderRadius: 14, background: "var(--bg-tertiary)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
                         <FolderOpen size={24} color="var(--text-muted)" />
                     </div>
-                    <div style={{ color: "var(--text-tertiary)", fontSize: 14, fontWeight: 500 }}>
+                    <div style={{ color: "var(--text-tertiary)", fontSize: 15, fontWeight: 500 }}>
                         {search ? "Không tìm thấy dự án nào" : "Chưa có project nào"}
                     </div>
-                    <div style={{ color: "var(--text-muted)", fontSize: 12, marginTop: 4 }}>
+                    <div style={{ color: "var(--text-muted)", fontSize: 13, marginTop: 4 }}>
                         {search ? "Thử từ khóa khác" : 'Nhấn "Tạo Project" để bắt đầu'}
                     </div>
                 </div>
@@ -225,13 +225,13 @@ export default function ProjectsPage() {
                                 <div style={{ padding: "14px 16px" }}>
                                     {/* Title */}
                                     <h3 style={{
-                                        fontSize: 14, fontWeight: 700, color: "var(--text-primary)", margin: "0 0 4px",
+                                        fontSize: 16, fontWeight: 700, color: "var(--text-primary)", margin: "0 0 4px",
                                         whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                                     }}>{p.title}</h3>
 
                                     {/* Description — 1 line */}
                                     <p style={{
-                                        fontSize: 11, color: "var(--text-muted)", margin: "0 0 12px",
+                                        fontSize: 13, color: "var(--text-muted)", margin: "0 0 12px",
                                         lineHeight: 1.4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                                     }}>{p.description || "Chưa có mô tả"}</p>
 
@@ -245,7 +245,7 @@ export default function ProjectsPage() {
                                                 transition: "width 0.6s ease",
                                             }} />
                                         </div>
-                                        <span style={{ fontSize: 11, fontWeight: 700, color: s.color, minWidth: 28, textAlign: "right" }}>
+                                        <span style={{ fontSize: 13, fontWeight: 700, color: s.color, minWidth: 28, textAlign: "right" }}>
                                             {stats.progress || 0}%
                                         </span>
                                     </div>
@@ -258,17 +258,17 @@ export default function ProjectsPage() {
                                                 width: 22, height: 22, borderRadius: 7,
                                                 background: "var(--gradient-brand)",
                                                 display: "flex", alignItems: "center", justifyContent: "center",
-                                                fontSize: 11, flexShrink: 0,
+                                                fontSize: 13, flexShrink: 0,
                                             }}>{lead?.avatar || "👤"}</div>
                                             <span style={{
-                                                fontSize: 11, color: "var(--text-secondary)", fontWeight: 500,
+                                                fontSize: 13, color: "var(--text-secondary)", fontWeight: 500,
                                                 whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                                             }}>{lead?.display_name || "Chưa assign"}</span>
                                         </div>
 
                                         {/* Status badge */}
                                         <span style={{
-                                            fontSize: 10, fontWeight: 600, padding: "2px 10px", borderRadius: 12, flexShrink: 0,
+                                            fontSize: 12, fontWeight: 600, padding: "3px 12px", borderRadius: 12, flexShrink: 0,
                                             background: s.bg, color: s.color,
                                         }}>{s.t}</span>
                                     </div>
@@ -278,7 +278,7 @@ export default function ProjectsPage() {
                                         <div style={{
                                             marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border-primary)",
                                             display: "flex", alignItems: "center", gap: 4,
-                                            fontSize: 10, fontWeight: 500,
+                                            fontSize: 12, fontWeight: 500,
                                             color: isOverdue(p.deadline) ? "var(--red)" : isDeadlineNear(p.deadline) ? "var(--amber)" : "var(--text-muted)",
                                         }}>
                                             <Calendar size={10} />
@@ -297,7 +297,7 @@ export default function ProjectsPage() {
                     <div style={{
                         display: "grid", gridTemplateColumns: "2fr 1fr 120px 100px 80px",
                         padding: "10px 16px", background: "var(--bg-secondary)",
-                        fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px",
+                        fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px",
                         borderBottom: "1px solid var(--border-primary)",
                     }}>
                         <span>Dự án</span>
@@ -329,12 +329,12 @@ export default function ProjectsPage() {
                                     }} />
                                     <div style={{ minWidth: 0 }}>
                                         <div style={{
-                                            fontSize: 13, fontWeight: 700, color: "var(--text-primary)",
+                                            fontSize: 15, fontWeight: 700, color: "var(--text-primary)",
                                             whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                                         }}>{p.title}</div>
                                         {p.description && (
                                             <div style={{
-                                                fontSize: 11, color: "var(--text-muted)", marginTop: 2,
+                                                fontSize: 13, color: "var(--text-muted)", marginTop: 2,
                                                 whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                                             }}>{p.description}</div>
                                         )}
@@ -347,10 +347,10 @@ export default function ProjectsPage() {
                                         width: 22, height: 22, borderRadius: 7,
                                         background: "var(--gradient-brand)",
                                         display: "flex", alignItems: "center", justifyContent: "center",
-                                        fontSize: 11, flexShrink: 0,
+                                        fontSize: 13, flexShrink: 0,
                                     }}>{lead?.avatar || "👤"}</div>
                                     <span style={{
-                                        fontSize: 11, color: "var(--text-secondary)", fontWeight: 500,
+                                        fontSize: 13, color: "var(--text-secondary)", fontWeight: 500,
                                         whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                                     }}>{lead?.display_name || "—"}</span>
                                 </div>
@@ -364,14 +364,14 @@ export default function ProjectsPage() {
                                             background: stats.progress >= 100 ? "var(--green)" : "var(--gradient-brand)",
                                         }} />
                                     </div>
-                                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", minWidth: 28, textAlign: "right" }}>
+                                    <span style={{ fontSize: 13, fontWeight: 700, color: "var(--accent)", minWidth: 28, textAlign: "right" }}>
                                         {stats.progress || 0}%
                                     </span>
                                 </div>
 
                                 {/* Deadline */}
                                 <span style={{
-                                    fontSize: 11, fontWeight: 500, display: "flex", alignItems: "center", gap: 4,
+                                    fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", gap: 4,
                                     color: p.deadline ? (isOverdue(p.deadline) ? "var(--red)" : isDeadlineNear(p.deadline) ? "var(--amber)" : "var(--text-muted)") : "var(--text-muted)",
                                 }}>
                                     {p.deadline ? (
@@ -382,7 +382,7 @@ export default function ProjectsPage() {
                                 {/* Status */}
                                 <div style={{ textAlign: "right" }}>
                                     <span style={{
-                                        fontSize: 10, fontWeight: 600, padding: "3px 10px", borderRadius: 12,
+                                        fontSize: 12, fontWeight: 600, padding: "3px 12px", borderRadius: 12,
                                         background: s.bg, color: s.color,
                                     }}>{s.t}</span>
                                 </div>
