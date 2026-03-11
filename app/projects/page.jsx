@@ -191,114 +191,100 @@ export default function ProjectsPage() {
                     </div>
                 </div>
             ) : viewMode === "grid" ? (
-                /* ===== GRID VIEW ===== */
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
+                /* ===== GRID VIEW — Style B ===== */
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 14 }}>
                     {filtered.map((p, i) => {
                         const s = STATUS_MAP[p.status] || STATUS_MAP.draft;
                         const stats = projectStats[p.id] || {};
+                        const lead = p.lead || null;
                         return (
                             <Link key={p.id} href={`/projects/${p.id}`} className="fade-in-up" style={{
                                 textDecoration: "none", animationDelay: `${i * 40}ms`, animationFillMode: "backwards",
-                                display: "flex", borderRadius: 12, overflow: "hidden",
+                                display: "block", borderRadius: 14, overflow: "hidden",
                                 border: "1px solid var(--border-primary)", background: "var(--bg-elevated)",
-                                transition: "all 0.2s",
+                                transition: "all 0.25s ease",
+                                boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
                             }}
                                 onMouseEnter={e => {
-                                    e.currentTarget.style.borderColor = "var(--accent)";
-                                    e.currentTarget.style.boxShadow = "0 4px 20px rgba(99,102,241,0.12)";
-                                    e.currentTarget.style.transform = "translateY(-2px)";
+                                    e.currentTarget.style.transform = "translateY(-3px)";
+                                    e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.08)";
+                                    e.currentTarget.style.borderColor = s.dot;
                                 }}
                                 onMouseLeave={e => {
-                                    e.currentTarget.style.borderColor = "var(--border-primary)";
-                                    e.currentTarget.style.boxShadow = "none";
                                     e.currentTarget.style.transform = "translateY(0)";
+                                    e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)";
+                                    e.currentTarget.style.borderColor = "var(--border-primary)";
                                 }}
                             >
-                                {/* Left color strip */}
-                                <div style={{ width: 4, background: s.dot, flexShrink: 0 }} />
+                                {/* Top gradient strip */}
+                                <div style={{
+                                    height: 4,
+                                    background: `linear-gradient(90deg, ${s.dot}, ${s.dot}88)`,
+                                }} />
 
-                                <div style={{ flex: 1, padding: "14px 16px", minWidth: 0 }}>
-                                    {/* Title + Status */}
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                                        <h3 style={{
-                                            fontSize: 14, fontWeight: 700, color: "var(--text-primary)", margin: 0,
-                                            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                                        }}>{p.title}</h3>
+                                <div style={{ padding: "14px 16px" }}>
+                                    {/* Title */}
+                                    <h3 style={{
+                                        fontSize: 14, fontWeight: 700, color: "var(--text-primary)", margin: "0 0 4px",
+                                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                                    }}>{p.title}</h3>
+
+                                    {/* Description — 1 line */}
+                                    <p style={{
+                                        fontSize: 11, color: "var(--text-muted)", margin: "0 0 12px",
+                                        lineHeight: 1.4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                                    }}>{p.description || "Chưa có mô tả"}</p>
+
+                                    {/* Progress bar */}
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                                        <div style={{ flex: 1, height: 4, borderRadius: 2, background: "var(--bg-tertiary)", overflow: "hidden" }}>
+                                            <div style={{
+                                                height: "100%", borderRadius: 2,
+                                                width: `${stats.progress || 0}%`,
+                                                background: stats.progress >= 100 ? "var(--green)" : `linear-gradient(90deg, ${s.dot}, ${s.dot}88)`,
+                                                transition: "width 0.6s ease",
+                                            }} />
+                                        </div>
+                                        <span style={{ fontSize: 11, fontWeight: 700, color: s.color, minWidth: 28, textAlign: "right" }}>
+                                            {stats.progress || 0}%
+                                        </span>
+                                    </div>
+
+                                    {/* Bottom row: Lead + Status badge */}
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                        {/* Project Lead */}
+                                        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                                            <div style={{
+                                                width: 22, height: 22, borderRadius: 7,
+                                                background: "var(--gradient-brand)",
+                                                display: "flex", alignItems: "center", justifyContent: "center",
+                                                fontSize: 11, flexShrink: 0,
+                                            }}>{lead?.avatar || "👤"}</div>
+                                            <span style={{
+                                                fontSize: 11, color: "var(--text-secondary)", fontWeight: 500,
+                                                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                                            }}>{lead?.display_name || "Chưa assign"}</span>
+                                        </div>
+
+                                        {/* Status badge */}
                                         <span style={{
-                                            fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 12, flexShrink: 0,
+                                            fontSize: 10, fontWeight: 600, padding: "2px 10px", borderRadius: 12, flexShrink: 0,
                                             background: s.bg, color: s.color,
                                         }}>{s.t}</span>
                                     </div>
 
-                                    {/* Description */}
-                                    {p.description && (
-                                        <p style={{
-                                            fontSize: 11, color: "var(--text-tertiary)", margin: "0 0 10px",
-                                            lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2,
-                                            WebkitBoxOrient: "vertical", overflow: "hidden",
-                                        }}>{p.description}</p>
+                                    {/* Deadline if exists */}
+                                    {p.deadline && (
+                                        <div style={{
+                                            marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border-primary)",
+                                            display: "flex", alignItems: "center", gap: 4,
+                                            fontSize: 10, fontWeight: 500,
+                                            color: isOverdue(p.deadline) ? "var(--red)" : isDeadlineNear(p.deadline) ? "var(--amber)" : "var(--text-muted)",
+                                        }}>
+                                            <Calendar size={10} />
+                                            {new Date(p.deadline).toLocaleDateString("vi-VN")}
+                                        </div>
                                     )}
-
-                                    {/* Progress bar */}
-                                    <div style={{ marginBottom: 10 }}>
-                                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                                            <span style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 500 }}>
-                                                {stats.doneCount || 0}/{stats.moduleCount || 0} modules
-                                            </span>
-                                            <span style={{ fontSize: 10, color: "var(--accent)", fontWeight: 700 }}>
-                                                {stats.progress || 0}%
-                                            </span>
-                                        </div>
-                                        <div style={{ height: 3, borderRadius: 2, background: "var(--bg-tertiary)", overflow: "hidden" }}>
-                                            <div style={{
-                                                height: "100%", borderRadius: 2,
-                                                width: `${stats.progress || 0}%`,
-                                                background: stats.progress >= 100 ? "var(--green)" : "var(--gradient-brand)",
-                                                transition: "width 0.6s ease",
-                                            }} />
-                                        </div>
-                                    </div>
-
-                                    {/* Bottom row: avatar stack + deadline */}
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                        {/* Avatar stack */}
-                                        <div style={{ display: "flex", alignItems: "center" }}>
-                                            {(stats.members || []).map((u, j) => (
-                                                <div key={u.id} title={u.display_name} style={{
-                                                    width: 22, height: 22, borderRadius: 7,
-                                                    background: "var(--gradient-brand)",
-                                                    display: "flex", alignItems: "center", justifyContent: "center",
-                                                    fontSize: 11, border: "2px solid var(--bg-elevated)",
-                                                    marginLeft: j === 0 ? 0 : -6, zIndex: 10 - j,
-                                                    position: "relative",
-                                                }}>{u.avatar || "👤"}</div>
-                                            ))}
-                                            {(stats.memberCount || 0) > 4 && (
-                                                <div style={{
-                                                    width: 22, height: 22, borderRadius: 7,
-                                                    background: "var(--bg-tertiary)", display: "flex",
-                                                    alignItems: "center", justifyContent: "center",
-                                                    fontSize: 9, fontWeight: 700, color: "var(--text-muted)",
-                                                    border: "2px solid var(--bg-elevated)",
-                                                    marginLeft: -6,
-                                                }}>+{stats.memberCount - 4}</div>
-                                            )}
-                                            {(stats.memberCount || 0) === 0 && (
-                                                <span style={{ fontSize: 10, color: "var(--text-muted)" }}>Chưa có thành viên</span>
-                                            )}
-                                        </div>
-
-                                        {/* Deadline */}
-                                        {p.deadline && (
-                                            <span style={{
-                                                fontSize: 10, fontWeight: 600, display: "flex", alignItems: "center", gap: 3,
-                                                color: isOverdue(p.deadline) ? "var(--red)" : isDeadlineNear(p.deadline) ? "var(--amber)" : "var(--text-muted)",
-                                            }}>
-                                                <Calendar size={10} />
-                                                {new Date(p.deadline).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}
-                                            </span>
-                                        )}
-                                    </div>
                                 </div>
                             </Link>
                         );
@@ -315,7 +301,7 @@ export default function ProjectsPage() {
                         borderBottom: "1px solid var(--border-primary)",
                     }}>
                         <span>Dự án</span>
-                        <span>Thành viên</span>
+                        <span>Lead</span>
                         <span>Tiến độ</span>
                         <span>Deadline</span>
                         <span style={{ textAlign: "right" }}>Status</span>
@@ -323,6 +309,7 @@ export default function ProjectsPage() {
                     {filtered.map((p, i) => {
                         const s = STATUS_MAP[p.status] || STATUS_MAP.draft;
                         const stats = projectStats[p.id] || {};
+                        const lead = p.lead || null;
                         return (
                             <Link key={p.id} href={`/projects/${p.id}`} className="fade-in-up" style={{
                                 display: "grid", gridTemplateColumns: "2fr 1fr 120px 100px 80px",
@@ -354,20 +341,18 @@ export default function ProjectsPage() {
                                     </div>
                                 </div>
 
-                                {/* Members */}
-                                <div style={{ display: "flex", alignItems: "center" }}>
-                                    {(stats.members || []).slice(0, 3).map((u, j) => (
-                                        <div key={u.id} title={u.display_name} style={{
-                                            width: 22, height: 22, borderRadius: 7,
-                                            background: "var(--gradient-brand)",
-                                            display: "flex", alignItems: "center", justifyContent: "center",
-                                            fontSize: 11, border: "2px solid var(--bg-elevated)",
-                                            marginLeft: j === 0 ? 0 : -6,
-                                        }}>{u.avatar || "👤"}</div>
-                                    ))}
-                                    <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6, fontWeight: 500 }}>
-                                        {stats.memberCount || 0}
-                                    </span>
+                                {/* Lead */}
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                                    <div style={{
+                                        width: 22, height: 22, borderRadius: 7,
+                                        background: "var(--gradient-brand)",
+                                        display: "flex", alignItems: "center", justifyContent: "center",
+                                        fontSize: 11, flexShrink: 0,
+                                    }}>{lead?.avatar || "👤"}</div>
+                                    <span style={{
+                                        fontSize: 11, color: "var(--text-secondary)", fontWeight: 500,
+                                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                                    }}>{lead?.display_name || "—"}</span>
                                 </div>
 
                                 {/* Progress */}
