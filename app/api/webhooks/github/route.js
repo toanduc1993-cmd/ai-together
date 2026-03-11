@@ -7,6 +7,7 @@ const DOC_EXTENSIONS = [
     ".pdf", ".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt",
     ".csv", ".md", ".txt", ".rtf", ".odt", ".ods", ".odp",
     ".drawio", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp",
+    ".html", ".htm",
 ];
 
 function isDocumentFile(filename) {
