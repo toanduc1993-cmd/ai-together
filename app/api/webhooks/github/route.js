@@ -16,22 +16,51 @@ function isDocumentFile(filename) {
 }
 
 /**
- * Resolve module_id from file path by matching against module titles.
- * Path pattern: docs/projects/{UUID}/filename.ext
- * Matching: normalize filename → compare with module titles
+ * Resolve project_id and module_id from file path.
+ * 
+ * Supported path patterns (in priority order):
+ * 1. docs/projects/{UUID}/filename.ext          → UUID match
+ * 2. docs/{project-slug}/filename.ext           → slug match against project titles
+ * 3. docs/filename.ext                           → fallback to provided projectId
+ * 
+ * Module matching: normalize filename → compare with module titles
  * e.g. "platform_architecture.md" matches module "Platform Architecture"
  */
 async function resolveModuleFromPath(filePath, projectId) {
-    // Extract project UUID from path if present
-    const uuidMatch = filePath.match(/docs\/projects\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\//i);
     let resolvedProjectId = projectId;
+    const pathParts = filePath.split("/");
+
+    // Strategy 1: Extract project UUID from path (docs/projects/{UUID}/...)
+    const uuidMatch = filePath.match(/docs\/projects\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\//i);
     if (uuidMatch) {
-        // Verify this UUID is actually a project
         const { data: proj } = await supabase.from("projects").select("id").eq("id", uuidMatch[1]).single();
         if (proj) resolvedProjectId = proj.id;
     }
 
-    // Try to match filename against module titles
+    // Strategy 2: Slug-based matching (docs/{slug}/filename.ext)
+    // Only if UUID match didn't work and path has subfolder under docs/
+    if (!uuidMatch) {
+        const docsIdx = pathParts.indexOf("docs");
+        if (docsIdx >= 0 && pathParts.length > docsIdx + 2) {
+            // The folder right after docs/ is the project slug
+            const slug = pathParts[docsIdx + 1];
+            if (slug !== "projects") { // Skip "projects" as that's the UUID pattern
+                const slugNormalized = slug.toLowerCase().replace(/[-_]/g, " ").trim();
+                // Fetch all projects and find best match
+                const { data: allProjects } = await supabase.from("projects").select("id, title");
+                if (allProjects) {
+                    const matched = allProjects.find(p => {
+                        const titleNorm = p.title.toLowerCase().replace(/[-_]/g, " ").trim();
+                        return titleNorm.includes(slugNormalized) || slugNormalized.includes(titleNorm)
+                            || titleNorm.replace(/[^a-z0-9 ]/g, "").includes(slugNormalized.replace(/[^a-z0-9 ]/g, ""));
+                    });
+                    if (matched) resolvedProjectId = matched.id;
+                }
+            }
+        }
+    }
+
+    // Module matching: normalize filename → compare with module titles
     const filename = filePath.split("/").pop().replace(/\.[^.]+$/, ""); // Remove extension
     const normalized = filename.toLowerCase().replace(/[-_]/g, " ").trim();
 

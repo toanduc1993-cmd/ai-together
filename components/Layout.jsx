@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Home, FolderKanban, Award, Users, Bell, Zap, LogOut, BarChart3, Moon, Sun, Menu, ClipboardList } from "lucide-react";
 import { useUser } from "@/lib/UserContext";
 import LoginPage from "@/components/LoginPage";
@@ -18,6 +18,7 @@ const NAV = [
 
 export default function Layout({ children }) {
     const pathname = usePathname();
+    const router = useRouter();
     const { currentUser, isAuthenticated, loading, logout, unreadCount, notifications, markNotificationsRead } = useUser();
     const [collapsed, setCollapsed] = useState(false);
     const [showNotif, setShowNotif] = useState(false);
@@ -205,17 +206,34 @@ export default function Layout({ children }) {
                                     <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--border-primary)", fontWeight: 700, fontSize: 16, color: "var(--text-primary)" }}>Thông báo</div>
                                     {notifications.length === 0 ? (
                                         <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>Chưa có thông báo</div>
-                                    ) : notifications.slice(0, 20).map(n => (
-                                        <div key={n.id} style={{
+                                    ) : notifications.slice(0, 20).map(n => {
+                                        // Build redirect URL from entity info
+                                        const getNotifUrl = () => {
+                                            if (n.entity_type === "project") return `/projects/${n.entity_id}`;
+                                            if (n.entity_type === "module" && n.entity_id) return `/my-tasks`;
+                                            return null;
+                                        };
+                                        const url = getNotifUrl();
+                                        return (
+                                        <div key={n.id}
+                                            onClick={() => {
+                                                if (url) {
+                                                    setShowNotif(false);
+                                                    router.push(url);
+                                                }
+                                            }}
+                                            style={{
                                             padding: "12px 16px", borderBottom: "1px solid var(--border-primary)",
                                             background: n.is_read ? "transparent" : "var(--accent-bg)",
                                             transition: "background 0.2s",
+                                            cursor: url ? "pointer" : "default",
                                         }}>
                                             <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{n.title}</div>
                                             <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 3 }}>{n.body}</div>
                                             <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 6 }}>{new Date(n.created_at).toLocaleString("vi-VN")}</div>
                                         </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
