@@ -59,11 +59,12 @@ jobs:
 
     steps:
       - name: Trigger Watchtower update
+        continue-on-error: true
         run: |
           echo "Notifying Watchtower to pull new image..."
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
             -H "Authorization: Bearer ${{ secrets.WATCHTOWER_TOKEN }}" \
-            "${{ secrets.WATCHTOWER_URL }}/v1/update")
+            "${{ secrets.WATCHTOWER_URL }}/v1/update") || true
 
           if [ "$HTTP_STATUS" = "200" ]; then
             echo "✅ Watchtower notified successfully!"
