@@ -1,0 +1,35 @@
+services:
+  app:
+    image: ghcr.io/toanduc1993-cmd/ai-together:latest
+    container_name: ai-together
+    restart: unless-stopped
+    ports:
+      - "7002:3000"
+    env_file:
+      - .env.production
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: unless-stopped
+    ports:
+      - "7003:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_LABEL_ENABLE=true
+      - WATCHTOWER_ROLLING_RESTART=true
+      - WATCHTOWER_HTTP_API_UPDATE=true
+      - WATCHTOWER_HTTP_API_TOKEN=${WATCHTOWER_TOKEN}
+      - WATCHTOWER_HTTP_API_PERIODIC_POLLS=false
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
