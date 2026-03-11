@@ -15,6 +15,33 @@ function isDocumentFile(filename) {
     return DOC_EXTENSIONS.some(ext => lower.endsWith(ext));
 }
 
+// Folders that contain project documents
+const DOC_FOLDERS = ["docs", "documents", "tai-lieu", "tailieu", "assets", "resources"];
+
+// Known framework/boilerplate files to always exclude
+const IGNORED_FILES = [
+    "vercel.svg", "next.svg", "globe.svg", "window.svg", "file.svg",
+    "favicon.ico", "robots.txt", "sitemap.xml",
+];
+
+function isProjectDocumentPath(filePath) {
+    const filename = filePath.split("/").pop().toLowerCase();
+    // Always exclude known framework files
+    if (IGNORED_FILES.includes(filename)) return false;
+    // Files in root (no subfolder) are not project docs
+    if (!filePath.includes("/")) return false;
+    // Files inside doc folders are always project docs
+    const pathLower = filePath.toLowerCase();
+    if (DOC_FOLDERS.some(f => pathLower.startsWith(f + "/") || pathLower.includes("/" + f + "/"))) return true;
+    // Files inside node_modules, .next, .git, public/ (framework) → exclude
+    if (/^(node_modules|.next|.git|\.github|public)\//i.test(filePath)) return false;
+    // Files at project root (only 1 level, e.g. "README.md") → exclude
+    const depth = filePath.split("/").length;
+    if (depth <= 1) return false;
+    // For everything else, accept if it's a doc extension
+    return true;
+}
+
 /**
  * Resolve project_id and module_id from file path.
  * 
@@ -139,7 +166,7 @@ export async function POST(req) {
         const docFiles = new Map(); // path -> { action, filename }
         for (const commit of body.commits || []) {
             for (const path of [...(commit.added || []), ...(commit.modified || [])]) {
-                if (isDocumentFile(path)) {
+                if (isDocumentFile(path) && isProjectDocumentPath(path)) {
                     const filename = path.split("/").pop();
                     docFiles.set(path, { path, filename });
                 }
@@ -254,7 +281,7 @@ export async function PUT(req) {
 
         // Filter document files
         const docFiles = (treeData.tree || []).filter(f =>
-            f.type === "blob" && isDocumentFile(f.path)
+            f.type === "blob" && isDocumentFile(f.path) && isProjectDocumentPath(f.path)
         );
 
         if (docFiles.length === 0) {

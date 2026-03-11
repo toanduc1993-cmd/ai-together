@@ -22,6 +22,15 @@ export default function ChatWidget() {
         loadRooms();
     }, [currentUser?.id]);
 
+    // Close chat with Escape key
+    useEffect(() => {
+        const handleEsc = (e) => {
+            if (e.key === "Escape" && open) setOpen(false);
+        };
+        document.addEventListener("keydown", handleEsc);
+        return () => document.removeEventListener("keydown", handleEsc);
+    }, [open]);
+
     const loadRooms = async () => {
         if (!currentUser?.id) return;
         const data = await fetch(`/api/chat/rooms?user_id=${currentUser.id}`).then(r => r.json());

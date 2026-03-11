@@ -421,6 +421,19 @@ export default function DiscussionThread({ moduleId, projectId }) {
                 )}
 
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <input
+                        ref={inputRef}
+                        type="text"
+                        value={text}
+                        onChange={handleTextChange}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Nhập bình luận... Gõ @ để tag người"
+                        style={{
+                            flex: 1, padding: "10px 14px", borderRadius: 10,
+                            border: "1px solid var(--border-primary)", background: "var(--bg-tertiary)",
+                            color: "var(--text-primary)", fontSize: 13, outline: "none",
+                        }}
+                    />
                     {/* Attach file button */}
                     <button
                         onClick={() => fileInputRef.current?.click()}
@@ -430,7 +443,7 @@ export default function DiscussionThread({ moduleId, projectId }) {
                             background: pendingFiles.length > 0 ? "var(--accent-bg)" : "var(--bg-tertiary)",
                             color: pendingFiles.length > 0 ? "var(--accent)" : "var(--text-muted)",
                             cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                            transition: "all 0.2s", position: "relative",
+                            transition: "all 0.2s", position: "relative", flexShrink: 0,
                         }}
                     >
                         <Paperclip size={16} />
@@ -456,19 +469,6 @@ export default function DiscussionThread({ moduleId, projectId }) {
                             e.target.value = "";
                         }}
                     />
-                    <input
-                        ref={inputRef}
-                        type="text"
-                        value={text}
-                        onChange={handleTextChange}
-                        onKeyDown={handleKeyDown}
-                        placeholder="Nhập bình luận... Gõ @ để tag người"
-                        style={{
-                            flex: 1, padding: "10px 14px", borderRadius: 10,
-                            border: "1px solid var(--border-primary)", background: "var(--bg-tertiary)",
-                            color: "var(--text-primary)", fontSize: 13, outline: "none",
-                        }}
-                    />
                     <button
                         onClick={handleSend}
                         disabled={(!text.trim() && pendingFiles.length === 0) || sending}
@@ -478,7 +478,7 @@ export default function DiscussionThread({ moduleId, projectId }) {
                             color: (text.trim() || pendingFiles.length > 0) ? "#fff" : "var(--text-muted)",
                             cursor: (text.trim() || pendingFiles.length > 0) ? "pointer" : "default",
                             display: "flex", alignItems: "center", justifyContent: "center",
-                            transition: "all 0.2s",
+                            transition: "all 0.2s", flexShrink: 0,
                         }}
                     >
                         <Send size={16} />
