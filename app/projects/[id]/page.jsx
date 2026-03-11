@@ -70,18 +70,17 @@ export default function ProjectDetailPage({ params }) {
     const [syncResult, setSyncResult] = useState(null);
     const [statusDropdownModule, setStatusDropdownModule] = useState(null);
 
-    const handleReassign = async (moduleId, newUserId) => {
+    const handleReassign = async (moduleId, userIds) => {
         setReassigningModule(null);
         try {
             const res = await fetch("/api/modules", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id: moduleId, assigned_to: newUserId || null }),
+                body: JSON.stringify({ id: moduleId, assigned_to_ids: userIds }),
             });
             if (res.ok) {
-                // Log activity
-                const assignee = users.find(u => u.id === newUserId);
                 const mod = modules.find(m => m.id === moduleId);
+                const names = userIds.map(uid => users.find(u => u.id === uid)?.display_name || "?").join(", ");
                 fetch("/api/activities", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -90,7 +89,7 @@ export default function ProjectDetailPage({ params }) {
                         action_type: "module_reassigned",
                         entity_type: "module",
                         entity_id: moduleId,
-                        detail: `Chuyển "${mod?.title}" → ${assignee?.display_name || "Chưa giao"}`,
+                        detail: `Giao "${mod?.title}" → ${names || "Chưa giao"}`,
                         project_id: id,
                     }),
                 }).catch(() => { });
@@ -188,18 +187,21 @@ export default function ProjectDetailPage({ params }) {
             });
         }
 
-        // Notify assigned user about new module
-        if (form.assigned_to && form.assigned_to !== currentUser.id) {
-            await fetch("/api/notifications", {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    user_id: form.assigned_to,
-                    type: "module_assigned",
-                    title: `Bạn được giao module "${form.title}" trong dự án ${project?.title || ""}`,
-                    body: `${currentUser.display_name} đã giao cho bạn một module mới. Vui lòng kiểm tra tại "Công việc của tôi".`,
-                    entity_type: "module", entity_id: id,
-                }),
-            });
+        // Notify assigned users about new module
+        const assignedIds = form.assigned_to_ids || [];
+        for (const uid of assignedIds) {
+            if (uid && uid !== currentUser.id) {
+                await fetch("/api/notifications", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        user_id: uid,
+                        type: "module_assigned",
+                        title: `Bạn được giao module "${form.title}" trong dự án ${project?.title || ""}`,
+                        body: `${currentUser.display_name} đã giao cho bạn một module mới. Vui lòng kiểm tra tại "Công việc của tôi".`,
+                        entity_type: "module", entity_id: id,
+                    }),
+                });
+            }
         }
         setShowAddModule(false); setForm({}); reload();
     };
@@ -632,7 +634,7 @@ export default function ProjectDetailPage({ params }) {
 
             {/* Module list — non-chairman only sees assigned modules */}
             {(() => {
-                const visibleModules = isChairman ? modules : modules.filter(m => m.assigned_to === currentUser?.id);
+                const visibleModules = isChairman ? modules : modules.filter(m => m.assigned_to === currentUser?.id || (m.assignees || []).some(a => a.id === currentUser?.id));
                 return visibleModules.length === 0 ? (
                     <div style={{ textAlign: "center", padding: 48, color: "var(--text-muted)", fontSize: 15, background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-primary)" }}>
                         {isChairman ? 'Chưa có module. Nhấn "Thêm Module" để bắt đầu!' : "Bạn chưa được giao module nào."}
@@ -643,7 +645,8 @@ export default function ProjectDetailPage({ params }) {
                     const isExpanded = expandedModule === mod.id;
                     const items = checklists[mod.id] || [];
                     const moduleFiles = files[mod.id] || [];
-                    const isOwner = currentUser?.id === mod.assigned_to;
+                    const moduleAssignees = mod.assignees || (mod.assignee ? [mod.assignee] : []);
+                    const isOwner = currentUser?.id === mod.assigned_to || moduleAssignees.some(a => a.id === currentUser?.id);
                     const canStart = isOwner && mod.status === "planned";
                     const canComplete = isOwner && (mod.status === "in_progress" || mod.status === "changes_requested");
                     const canReview = isChairman && mod.status === "in_review";
@@ -731,45 +734,53 @@ export default function ProjectDetailPage({ params }) {
                                             );
                                         })()}
                                         <span style={{ fontSize: 12, fontWeight: 600, color: pc.color, background: `${pc.color}12`, padding: "2px 10px", borderRadius: 8 }}>{pc.label}</span>
-                                        {/* Assignee — clickable for chairman to reassign */}
+                                        {/* Assignees — multi-avatar display */}
                                         {isChairman ? (
                                             <span
                                                 onClick={(e) => { e.stopPropagation(); setReassigningModule(reassigningModule === mod.id ? null : mod.id); }}
-                                                style={{ fontSize: 13, color: "var(--accent)", cursor: "pointer", position: "relative", padding: "2px 10px", borderRadius: 8, background: "var(--accent-bg)", fontWeight: 600 }}
+                                                style={{ fontSize: 13, color: "var(--accent)", cursor: "pointer", position: "relative", padding: "2px 10px", borderRadius: 8, background: "var(--accent-bg)", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}
                                             >
-                                                👤 {mod.assignee?.display_name || "Chưa giao"} ✏️
+                                                {moduleAssignees.length > 0 ? (
+                                                    <>{moduleAssignees.map((a, i) => <span key={a.id} title={a.display_name} style={{ fontSize: 15 }}>{a.avatar || "👤"}</span>)} <span style={{ fontSize: 12 }}>{moduleAssignees.length > 1 ? `${moduleAssignees.length} người` : moduleAssignees[0]?.display_name}</span></>
+                                                ) : "Chưa giao"} ✏️
                                                 {reassigningModule === mod.id && (
                                                     <div onClick={(e) => e.stopPropagation()} style={{
                                                         position: "absolute", top: "100%", left: 0, marginTop: 4, zIndex: 100,
                                                         background: "var(--bg-elevated)", border: "1px solid var(--border-primary)",
-                                                        borderRadius: 10, boxShadow: "var(--shadow-xl)", minWidth: 200, overflow: "hidden",
+                                                        borderRadius: 10, boxShadow: "var(--shadow-xl)", minWidth: 240, overflow: "hidden",
                                                     }}>
-                                                        <div style={{ padding: "8px 12px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", borderBottom: "1px solid var(--border-primary)" }}>Chọn người nhận:</div>
-                                                        <div
-                                                            onClick={() => handleReassign(mod.id, null)}
-                                                            style={{ padding: "8px 14px", fontSize: 13, cursor: "pointer", color: "var(--text-secondary)", borderBottom: "1px solid var(--border-primary)" }}
-                                                            onMouseEnter={(e) => e.target.style.background = "var(--bg-tertiary)"}
-                                                            onMouseLeave={(e) => e.target.style.background = "transparent"}
-                                                        >— Chưa giao —</div>
-                                                        {users.map(u => (
-                                                            <div
-                                                                key={u.id}
-                                                                onClick={() => handleReassign(mod.id, u.id)}
-                                                                style={{
-                                                                    padding: "8px 14px", fontSize: 13, cursor: "pointer",
-                                                                    color: u.id === mod.assigned_to ? "var(--accent)" : "var(--text-primary)",
-                                                                    fontWeight: u.id === mod.assigned_to ? 700 : 400,
-                                                                    borderBottom: "1px solid var(--border-primary)",
-                                                                }}
-                                                                onMouseEnter={(e) => e.target.style.background = "var(--bg-tertiary)"}
-                                                                onMouseLeave={(e) => e.target.style.background = "transparent"}
-                                                            >{u.avatar} {u.display_name} {u.id === mod.assigned_to ? "✓" : ""}</div>
-                                                        ))}
+                                                        <div style={{ padding: "8px 12px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", borderBottom: "1px solid var(--border-primary)" }}>Chọn nhân sự (nhiều người):</div>
+                                                        {users.map(u => {
+                                                            const isSelected = moduleAssignees.some(a => a.id === u.id);
+                                                            return (
+                                                                <div
+                                                                    key={u.id}
+                                                                    onClick={() => {
+                                                                        const currentIds = moduleAssignees.map(a => a.id);
+                                                                        const newIds = isSelected ? currentIds.filter(id2 => id2 !== u.id) : [...currentIds, u.id];
+                                                                        handleReassign(mod.id, newIds);
+                                                                    }}
+                                                                    style={{
+                                                                        padding: "8px 14px", fontSize: 13, cursor: "pointer",
+                                                                        display: "flex", alignItems: "center", gap: 8,
+                                                                        color: isSelected ? "var(--accent)" : "var(--text-primary)",
+                                                                        fontWeight: isSelected ? 700 : 400,
+                                                                        borderBottom: "1px solid var(--border-primary)",
+                                                                        background: isSelected ? "var(--accent-bg)" : "transparent",
+                                                                    }}
+                                                                    onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = "var(--bg-tertiary)"; }}
+                                                                    onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
+                                                                >
+                                                                    <span style={{ width: 18, height: 18, borderRadius: 4, border: isSelected ? "2px solid var(--accent)" : "2px solid var(--border-secondary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, background: isSelected ? "var(--accent)" : "transparent", color: "#fff" }}>{isSelected ? "✓" : ""}</span>
+                                                                    {u.avatar} {u.display_name}
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
                                                 )}
                                             </span>
                                         ) : (
-                                            mod.assignee && <span style={{ fontSize: 13, color: "var(--text-muted)" }}>👤 {mod.assignee.display_name}</span>
+                                            moduleAssignees.length > 0 && <span style={{ fontSize: 13, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>👤 {moduleAssignees.map(a => a.display_name).join(", ")}</span>
                                         )}
                                         {mod.deadline && <span style={{ fontSize: 13, color: "var(--text-muted)" }}>📅 {new Date(mod.deadline).toLocaleDateString("vi-VN")}</span>}
                                     </div>
@@ -1034,10 +1045,23 @@ export default function ProjectDetailPage({ params }) {
                     <Input label="Tên module *" value={form.title || ""} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
                     <Input label="Mô tả" value={form.description || ""} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                        <Select label="Assign nhân sự" value={form.assigned_to || ""} onChange={e => setForm(f => ({ ...f, assigned_to: e.target.value }))}>
-                            <option value="">-- Chọn sau --</option>
-                            {users.map(u => <option key={u.id} value={u.id}>{u.display_name}</option>)}
-                        </Select>
+                        <div>
+                            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6, display: "block" }}>Assign nhân sự</label>
+                            <div style={{ maxHeight: 140, overflowY: "auto", border: "1px solid var(--border-primary)", borderRadius: 10, background: "var(--bg-tertiary)" }}>
+                                {users.map(u => {
+                                    const sel = (form.assigned_to_ids || []).includes(u.id);
+                                    return (
+                                        <div key={u.id} onClick={() => setForm(f => {
+                                            const cur = f.assigned_to_ids || [];
+                                            return { ...f, assigned_to_ids: sel ? cur.filter(x => x !== u.id) : [...cur, u.id] };
+                                        })} style={{ padding: "7px 12px", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, borderBottom: "1px solid var(--border-primary)", background: sel ? "var(--accent-bg)" : "transparent", color: sel ? "var(--accent)" : "var(--text-primary)", fontWeight: sel ? 600 : 400 }}>
+                                            <span style={{ width: 16, height: 16, borderRadius: 4, border: sel ? "2px solid var(--accent)" : "2px solid var(--border-secondary)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, background: sel ? "var(--accent)" : "transparent", color: "#fff", flexShrink: 0 }}>{sel ? "✓" : ""}</span>
+                                            {u.avatar} {u.display_name}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
                         <Select label="Ưu tiên" value={form.priority || "medium"} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
                             <option value="critical">Critical</option>
                             <option value="high">High</option>

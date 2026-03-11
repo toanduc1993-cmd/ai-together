@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useUser } from "@/lib/UserContext";
-import { MessageCircle, Send } from "lucide-react";
+import { MessageCircle, Send, Paperclip, X, Download } from "lucide-react";
 
 /* ========== Render comment text with highlighted @mentions ========== */
 function RenderMentionText({ text, users }) {
@@ -29,6 +29,25 @@ function RenderMentionText({ text, users }) {
     });
 }
 
+/* ========== File icon helper ========== */
+function getFileIcon(type) {
+    if (!type) return "📄";
+    if (type.startsWith("image/")) return "🖼️";
+    if (type.includes("pdf")) return "📕";
+    if (type.includes("word") || type.includes("document")) return "📘";
+    if (type.includes("sheet") || type.includes("excel")) return "📗";
+    if (type.includes("zip") || type.includes("rar")) return "📦";
+    if (type.includes("video")) return "🎬";
+    return "📄";
+}
+
+function formatFileSize(bytes) {
+    if (!bytes) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1048576).toFixed(1)} MB`;
+}
+
 export default function DiscussionThread({ moduleId, projectId }) {
     const { currentUser } = useUser();
     const [comments, setComments] = useState([]);
@@ -40,7 +59,10 @@ export default function DiscussionThread({ moduleId, projectId }) {
     const [mentionFilter, setMentionFilter] = useState("");
     const [mentionIndex, setMentionIndex] = useState(0);
     const [cursorPos, setCursorPos] = useState(0);
+    const [pendingFiles, setPendingFiles] = useState([]);
+    const [commentFiles, setCommentFiles] = useState({});
     const inputRef = useRef(null);
+    const fileInputRef = useRef(null);
     const endRef = useRef(null);
     const mentionRef = useRef(null);
 
@@ -56,10 +78,27 @@ export default function DiscussionThread({ moduleId, projectId }) {
             const res = await fetch(`/api/comments?module_id=${moduleId}`);
             if (res.ok) {
                 const data = await res.json();
-                setComments(Array.isArray(data) ? data : []);
+                const comments = Array.isArray(data) ? data : [];
+                setComments(comments);
+                // Fetch files for each comment
+                for (const c of comments) {
+                    fetchCommentFiles(c.id);
+                }
             }
         } catch { }
         setLoading(false);
+    };
+
+    const fetchCommentFiles = async (activityId) => {
+        try {
+            const res = await fetch(`/api/files?activity_id=${activityId}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data) && data.length > 0) {
+                    setCommentFiles(prev => ({ ...prev, [activityId]: data }));
+                }
+            }
+        } catch { }
     };
 
     useEffect(() => {
@@ -80,7 +119,7 @@ export default function DiscussionThread({ moduleId, projectId }) {
     };
 
     const handleSend = async () => {
-        if (!text.trim() || !currentUser?.id || sending) return;
+        if ((!text.trim() && pendingFiles.length === 0) || !currentUser?.id || sending) return;
         setSending(true);
         try {
             const mentions = extractMentions(text);
@@ -90,13 +129,27 @@ export default function DiscussionThread({ moduleId, projectId }) {
                 body: JSON.stringify({
                     module_id: moduleId,
                     user_id: currentUser.id,
-                    text: text.trim(),
+                    text: text.trim() || (pendingFiles.length > 0 ? `📎 ${pendingFiles.length} file đính kèm` : ""),
                     project_id: projectId || null,
                     mentions,
                 }),
             });
             if (res.ok) {
+                const activity = await res.json();
+                // Upload pending files linked to this comment's activity_id
+                if (pendingFiles.length > 0 && activity?.id) {
+                    for (const file of pendingFiles) {
+                        const fd = new FormData();
+                        fd.append("file", file);
+                        fd.append("activity_id", activity.id);
+                        fd.append("module_id", moduleId);
+                        fd.append("uploaded_by", currentUser.id);
+                        fd.append("label", "Comment attachment");
+                        await fetch("/api/files", { method: "POST", body: fd });
+                    }
+                }
                 setText("");
+                setPendingFiles([]);
                 setShowMentions(false);
                 await fetchComments();
             }
@@ -226,6 +279,7 @@ export default function DiscussionThread({ moduleId, projectId }) {
                     </div>
                 ) : comments.map((c) => {
                     const isMe = c.user_id === currentUser?.id;
+                    const cFiles = commentFiles[c.id] || [];
                     return (
                         <div key={c.id} style={{
                             display: "flex", gap: 10, marginBottom: 14,
@@ -258,6 +312,30 @@ export default function DiscussionThread({ moduleId, projectId }) {
                                     wordBreak: "break-word",
                                 }}>
                                     <RenderMentionText text={c.detail} users={users} />
+                                    {/* Attached files */}
+                                    {cFiles.length > 0 && (
+                                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border-primary)" }}>
+                                            {cFiles.map(f => (
+                                                <div key={f.id} style={{
+                                                    display: "flex", alignItems: "center", gap: 6,
+                                                    padding: "4px 0", fontSize: 12,
+                                                }}>
+                                                    <span style={{ fontSize: 14 }}>{getFileIcon(f.file_type)}</span>
+                                                    <span style={{
+                                                        flex: 1, color: "var(--text-secondary)", fontWeight: 500,
+                                                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                                                    }}>{f.filename}</span>
+                                                    <span style={{ color: "var(--text-muted)", fontSize: 11 }}>{formatFileSize(f.file_size)}</span>
+                                                    {f.file_url?.startsWith("http") && (
+                                                        <a href={f.file_url} target="_blank" rel="noopener noreferrer" download
+                                                            style={{ color: "var(--green)", display: "flex", flexShrink: 0 }}>
+                                                            <Download size={13} />
+                                                        </a>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -266,7 +344,28 @@ export default function DiscussionThread({ moduleId, projectId }) {
                 <div ref={endRef} />
             </div>
 
-            {/* Input with @mention */}
+            {/* Pending files preview */}
+            {pendingFiles.length > 0 && (
+                <div style={{ padding: "8px 18px", borderTop: "1px solid var(--border-primary)", background: "var(--bg-secondary)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", marginBottom: 4 }}>📎 File đính kèm ({pendingFiles.length})</div>
+                    {pendingFiles.map((f, i) => (
+                        <div key={i} style={{
+                            display: "flex", alignItems: "center", gap: 6, padding: "4px 0",
+                            fontSize: 12, color: "var(--text-secondary)",
+                        }}>
+                            <span style={{ fontSize: 14 }}>{getFileIcon(f.type)}</span>
+                            <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 500 }}>{f.name}</span>
+                            <span style={{ color: "var(--text-muted)", fontSize: 11 }}>{formatFileSize(f.size)}</span>
+                            <button onClick={() => setPendingFiles(prev => prev.filter((_, j) => j !== i))}
+                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--red)", padding: 0, display: "flex" }}>
+                                <X size={13} />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Input with @mention + file attach */}
             <div style={{
                 padding: "12px 18px", borderTop: "1px solid var(--border-primary)",
                 position: "relative",
@@ -322,6 +421,41 @@ export default function DiscussionThread({ moduleId, projectId }) {
                 )}
 
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    {/* Attach file button */}
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        title="Đính kèm file"
+                        style={{
+                            width: 38, height: 38, borderRadius: 10, border: "none",
+                            background: pendingFiles.length > 0 ? "var(--accent-bg)" : "var(--bg-tertiary)",
+                            color: pendingFiles.length > 0 ? "var(--accent)" : "var(--text-muted)",
+                            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                            transition: "all 0.2s", position: "relative",
+                        }}
+                    >
+                        <Paperclip size={16} />
+                        {pendingFiles.length > 0 && (
+                            <span style={{
+                                position: "absolute", top: -4, right: -4,
+                                width: 16, height: 16, borderRadius: "50%",
+                                background: "var(--accent)", color: "#fff",
+                                fontSize: 10, fontWeight: 700,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                            }}>{pendingFiles.length}</span>
+                        )}
+                    </button>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        style={{ display: "none" }}
+                        onChange={(e) => {
+                            if (e.target.files.length > 0) {
+                                setPendingFiles(prev => [...prev, ...Array.from(e.target.files)]);
+                            }
+                            e.target.value = "";
+                        }}
+                    />
                     <input
                         ref={inputRef}
                         type="text"
@@ -337,12 +471,12 @@ export default function DiscussionThread({ moduleId, projectId }) {
                     />
                     <button
                         onClick={handleSend}
-                        disabled={!text.trim() || sending}
+                        disabled={(!text.trim() && pendingFiles.length === 0) || sending}
                         style={{
                             width: 38, height: 38, borderRadius: 10, border: "none",
-                            background: text.trim() ? "var(--gradient-brand)" : "var(--bg-tertiary)",
-                            color: text.trim() ? "#fff" : "var(--text-muted)",
-                            cursor: text.trim() ? "pointer" : "default",
+                            background: (text.trim() || pendingFiles.length > 0) ? "var(--gradient-brand)" : "var(--bg-tertiary)",
+                            color: (text.trim() || pendingFiles.length > 0) ? "#fff" : "var(--text-muted)",
+                            cursor: (text.trim() || pendingFiles.length > 0) ? "pointer" : "default",
                             display: "flex", alignItems: "center", justifyContent: "center",
                             transition: "all 0.2s",
                         }}

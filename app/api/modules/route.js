@@ -1,4 +1,4 @@
-import { getModulesByProject, getModuleById, getAllModules, createModule, updateModule, deleteModule, createActivity, createNotification } from "@/lib/supabase";
+import { getModulesByProject, getModuleById, getAllModules, createModule, updateModule, deleteModule, createActivity, createNotification, setModuleAssignees } from "@/lib/supabase";
 import { NextResponse } from "next/server";
 
 export async function GET(req) {
@@ -33,16 +33,24 @@ export async function POST(req) {
             return NextResponse.json({ error: "Tên module quá dài (tối đa 200 ký tự)" }, { status: 400 });
         }
 
+        // Support multi-assign: assigned_to_ids[] or legacy assigned_to
+        const assignedIds = body.assigned_to_ids || (body.assigned_to ? [body.assigned_to] : []);
+
         const mod = await createModule({
             project_id: body.project_id,
             title: body.title,
             description: body.description || "",
-            assigned_to: body.assigned_to || null,
+            assigned_to: assignedIds[0] || null,
             status: "planned",
             priority: body.priority || "medium",
             deadline: body.deadline || null,
             progress_pct: 0,
         });
+
+        // Sync multi-assign table
+        if (assignedIds.length > 0) {
+            try { await setModuleAssignees(mod.id, assignedIds); } catch { }
+        }
 
         // Activity log
         if (body.created_by) {
@@ -56,16 +64,18 @@ export async function POST(req) {
             });
         }
 
-        // Notify assigned user
-        if (body.assigned_to) {
-            await createNotification({
-                user_id: body.assigned_to,
-                type: "module_assigned",
-                title: "Bạn được assign module mới",
-                body: `Module "${body.title}" cần bạn phát triển.`,
-                entity_type: "module",
-                entity_id: mod.id,
-            });
+        // Notify all assigned users
+        for (const uid of assignedIds) {
+            if (uid && uid !== body.created_by) {
+                await createNotification({
+                    user_id: uid,
+                    type: "module_assigned",
+                    title: "Bạn được assign module mới",
+                    body: `Module "${body.title}" cần bạn phát triển.`,
+                    entity_type: "module",
+                    entity_id: mod.id,
+                });
+            }
         }
 
         return NextResponse.json(mod, { status: 201 });
@@ -78,7 +88,14 @@ export async function PUT(req) {
     try {
         const body = await req.json();
         if (!body.id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
-        const { id, user_id, project_id, ...updates } = body;
+        const { id, user_id, project_id, assigned_to_ids, ...updates } = body;
+
+        // Handle multi-assign update
+        if (assigned_to_ids !== undefined) {
+            try { await setModuleAssignees(id, assigned_to_ids || []); } catch { }
+            // Also update the legacy assigned_to field
+            updates.assigned_to = assigned_to_ids?.[0] || null;
+        }
 
         // If status changed, log activity with module name
         if (updates.status && user_id) {

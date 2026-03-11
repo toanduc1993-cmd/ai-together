@@ -9,6 +9,7 @@ export async function POST(req) {
         const projectId = formData.get("project_id");
         const deliverableId = formData.get("deliverable_id");
         const checklistItemId = formData.get("checklist_item_id");
+        const activityId = formData.get("activity_id");
         const uploadedBy = formData.get("uploaded_by");
         const label = formData.get("label") || "";
 
@@ -45,6 +46,7 @@ export async function POST(req) {
                 project_id: projectId || null,
                 deliverable_id: deliverableId || null,
                 checklist_item_id: checklistItemId || null,
+                activity_id: activityId || null,
             };
 
             const { data: record, error: dbError } = await supabase
@@ -75,6 +77,7 @@ export async function POST(req) {
                 project_id: projectId || null,
                 deliverable_id: deliverableId || null,
                 checklist_item_id: checklistItemId || null,
+                activity_id: activityId || null,
             })
             .select()
             .single();
@@ -100,6 +103,10 @@ export async function GET(req) {
         if (projectId) query = query.eq("project_id", projectId).is("module_id", null);
         if (deliverableId) query = query.eq("deliverable_id", deliverableId);
         if (checklistItemId) query = query.eq("checklist_item_id", checklistItemId);
+
+        // Support filtering by activity_id (comment attachments)
+        const activityId = searchParams.get("activity_id");
+        if (activityId) query = query.eq("activity_id", activityId);
 
         const { data, error } = await query;
         if (error) throw error;

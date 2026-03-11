@@ -7,11 +7,17 @@ export default function AssignModuleModal({ projectId, users = [], onClose, onCr
     const { currentUser } = useUser();
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
-    const [assignTo, setAssignTo] = useState("");
+    const [selectedUsers, setSelectedUsers] = useState([]);
     const [priority, setPriority] = useState("medium");
     const [deadline, setDeadline] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState("");
+
+    const toggleUser = (uid) => {
+        setSelectedUsers(prev =>
+            prev.includes(uid) ? prev.filter(id => id !== uid) : [...prev, uid]
+        );
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -27,7 +33,7 @@ export default function AssignModuleModal({ projectId, users = [], onClose, onCr
                     project_id: projectId,
                     title: title.trim(),
                     description: description.trim(),
-                    assigned_to: assignTo || null,
+                    assigned_to_ids: selectedUsers,
                     assigned_by: currentUser?.id,
                     priority,
                     deadline: deadline || null,
@@ -102,15 +108,40 @@ export default function AssignModuleModal({ projectId, users = [], onClose, onCr
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
                         <div>
-                            <label style={labelStyle}>Giao cho</label>
-                            <select value={assignTo} onChange={e => setAssignTo(e.target.value)} style={inputStyle}>
-                                <option value="">— Chưa giao —</option>
-                                {users.map(u => (
-                                    <option key={u.id} value={u.id}>
-                                        {u.avatar} {u.display_name}
-                                    </option>
-                                ))}
-                            </select>
+                            <label style={labelStyle}>Giao cho (chọn nhiều)</label>
+                            <div style={{ maxHeight: 140, overflowY: "auto", border: "1px solid var(--border-primary)", borderRadius: 10, background: "var(--bg-tertiary)" }}>
+                                {users.map(u => {
+                                    const sel = selectedUsers.includes(u.id);
+                                    return (
+                                        <div
+                                            key={u.id}
+                                            onClick={() => toggleUser(u.id)}
+                                            style={{
+                                                padding: "7px 12px", fontSize: 13, cursor: "pointer",
+                                                display: "flex", alignItems: "center", gap: 8,
+                                                borderBottom: "1px solid var(--border-primary)",
+                                                background: sel ? "var(--accent-bg)" : "transparent",
+                                                color: sel ? "var(--accent)" : "var(--text-primary)",
+                                                fontWeight: sel ? 600 : 400,
+                                            }}
+                                        >
+                                            <span style={{
+                                                width: 16, height: 16, borderRadius: 4,
+                                                border: sel ? "2px solid var(--accent)" : "2px solid var(--border-secondary)",
+                                                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                                fontSize: 10, background: sel ? "var(--accent)" : "transparent",
+                                                color: "#fff", flexShrink: 0,
+                                            }}>{sel ? "✓" : ""}</span>
+                                            {u.avatar} {u.display_name}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            {selectedUsers.length > 0 && (
+                                <div style={{ fontSize: 11, color: "var(--accent)", marginTop: 4, fontWeight: 600 }}>
+                                    Đã chọn {selectedUsers.length} người
+                                </div>
+                            )}
                         </div>
                         <div>
                             <label style={labelStyle}>Ưu tiên</label>
@@ -163,3 +194,4 @@ export default function AssignModuleModal({ projectId, users = [], onClose, onCr
         </div>
     );
 }
+
