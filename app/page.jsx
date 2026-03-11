@@ -32,9 +32,7 @@ export default function DashboardPage() {
 
         const load = async () => {
             const { cached, fresh } = await fetchDashboard(currentUser.id);
-            // Instant render from cache
             if (cached) applyData(cached);
-            // Then update with fresh data
             const freshData = await fresh;
             if (freshData) applyData(freshData);
         };
@@ -88,16 +86,6 @@ export default function DashboardPage() {
 
     return (
         <div className="fade-in">
-            {/* Hero */}
-            <div style={{ marginBottom: 28 }}>
-                <h1 style={{ fontSize: 26, fontWeight: 800, color: "var(--text-primary)", letterSpacing: -0.5, lineHeight: 1.2 }}>
-                    Xin chào, {currentUser?.display_name} 👋
-                </h1>
-                <p style={{ color: "var(--text-tertiary)", fontSize: 13, marginTop: 6 }}>
-                    {new Date().toLocaleDateString("vi-VN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} — Dashboard theo dõi hiệu suất team
-                </p>
-            </div>
-
             {/* ===== KEY METRICS ROW ===== */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12, marginBottom: 24 }}>
                 <MetricCard icon={<Package size={20} />} label="Tổng" value={totalModules} color="#6366F1" />
@@ -115,9 +103,9 @@ export default function DashboardPage() {
                 {/* ===== LEFT COLUMN ===== */}
                 <div>
                     {/* Team Performance Table */}
-                    <div style={{ background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-primary)", padding: "20px 22px", marginBottom: 16, boxShadow: "var(--shadow-xs)" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
+                    <div className="section-card" style={{ marginBottom: 16 }}>
+                        <div className="section-header">
+                            <h3 className="section-title">
                                 <Users size={18} color="var(--accent)" /> Team Performance
                             </h3>
                         </div>
@@ -126,11 +114,11 @@ export default function DashboardPage() {
                         ) : (
                             <div>
                                 {/* Table header */}
-                                <div style={{ display: "grid", gridTemplateColumns: "1.5fr 0.6fr 0.6fr 0.6fr 0.6fr 0.6fr 1.2fr", gap: 4, padding: "8px 0", borderBottom: "1px solid var(--border-primary)", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                                <div className="table-header" style={{ gridTemplateColumns: "1.5fr 0.6fr 0.6fr 0.6fr 0.6fr 0.6fr 1.2fr" }}>
                                     <span>Thành viên</span><span style={{ textAlign: "center" }}>Giao</span><span style={{ textAlign: "center" }}>Xong</span><span style={{ textAlign: "center" }}>Đang</span><span style={{ textAlign: "center" }}>Trễ</span><span style={{ textAlign: "center" }}>Sửa</span><span>Tiến độ</span>
                                 </div>
                                 {userMetrics.map((um, i) => (
-                                    <div key={i} style={{ display: "grid", gridTemplateColumns: "1.5fr 0.6fr 0.6fr 0.6fr 0.6fr 0.6fr 1.2fr", gap: 4, padding: "10px 0", borderBottom: i < userMetrics.length - 1 ? "1px solid var(--border-primary)" : "none", alignItems: "center", fontSize: 13 }}>
+                                    <div key={i} className="table-row" style={{ gridTemplateColumns: "1.5fr 0.6fr 0.6fr 0.6fr 0.6fr 0.6fr 1.2fr" }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                             <span style={{ fontSize: 18 }}>{um.user.avatar || "👤"}</span>
                                             <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{um.user.display_name}</span>
@@ -141,8 +129,8 @@ export default function DashboardPage() {
                                         <span style={{ textAlign: "center", fontWeight: 700, color: um.overdue > 0 ? "#EF4444" : "var(--text-muted)" }}>{um.overdue}</span>
                                         <span style={{ textAlign: "center", fontWeight: 600, color: um.changesReq > 0 ? "#EF4444" : "var(--text-muted)" }}>{um.changesReq}</span>
                                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                            <div style={{ flex: 1, height: 8, background: "var(--bg-tertiary)", borderRadius: 4, overflow: "hidden" }}>
-                                                <div style={{ height: "100%", width: `${um.rate}%`, background: um.rate >= 80 ? "#10B981" : um.rate >= 50 ? "#F59E0B" : "#EF4444", borderRadius: 4, transition: "width 0.6s" }} />
+                                            <div className="progress-bar" style={{ flex: 1 }}>
+                                                <div className="progress-bar-fill gradient" style={{ width: `${um.rate}%`, background: um.rate >= 80 ? "linear-gradient(90deg, #10B981, #34D399)" : um.rate >= 50 ? "linear-gradient(90deg, #F59E0B, #FBBF24)" : "linear-gradient(90deg, #EF4444, #F87171)" }} />
                                             </div>
                                             <span style={{ fontSize: 12, fontWeight: 700, color: um.rate >= 80 ? "#10B981" : um.rate >= 50 ? "#F59E0B" : "#EF4444", minWidth: 32 }}>{um.rate}%</span>
                                         </div>
@@ -153,9 +141,9 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Project Progress */}
-                    <div style={{ background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-primary)", padding: "20px 22px", marginBottom: 16, boxShadow: "var(--shadow-xs)" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
+                    <div className="section-card" style={{ marginBottom: 16 }}>
+                        <div className="section-header">
+                            <h3 className="section-title">
                                 <FolderKanban size={18} color="var(--green)" /> Tiến độ dự án
                             </h3>
                             <Link href="/projects" style={{ color: "var(--accent)", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 4, textDecoration: "none" }}>Xem tất cả <ArrowRight size={13} /></Link>
@@ -171,8 +159,8 @@ export default function DashboardPage() {
                                         <span style={{ fontSize: 13, fontWeight: 700, color: pPct === 100 ? "#10B981" : "var(--text-tertiary)" }}>{pPct}%</span>
                                     </div>
                                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                        <div style={{ flex: 1, height: 8, background: "var(--bg-tertiary)", borderRadius: 4, overflow: "hidden" }}>
-                                            <div style={{ height: "100%", width: `${pPct}%`, background: pPct === 100 ? "#10B981" : "var(--accent)", borderRadius: 4, transition: "width 0.6s" }} />
+                                        <div className="progress-bar" style={{ flex: 1 }}>
+                                            <div className="progress-bar-fill gradient" style={{ width: `${pPct}%`, background: pPct === 100 ? "linear-gradient(90deg, #10B981, #34D399)" : undefined }} />
                                         </div>
                                         <span style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap" }}>{pDone}/{pMods.length} modules</span>
                                     </div>
@@ -185,16 +173,16 @@ export default function DashboardPage() {
                 {/* ===== RIGHT COLUMN ===== */}
                 <div>
                     {/* Module Status Distribution */}
-                    <div style={{ background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-primary)", padding: "20px 22px", marginBottom: 16, boxShadow: "var(--shadow-xs)" }}>
-                        <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
+                    <div className="section-card" style={{ marginBottom: 16 }}>
+                        <h3 className="section-title" style={{ marginBottom: 16 }}>
                             <BarChart3 size={18} color="#8B5CF6" /> Phân bổ trạng thái Module
                         </h3>
                         {statusDist.map(s => (
-                            <div key={s.key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
+                            <div key={s.key} className="status-bar-item">
                                 <div style={{ width: 12, height: 12, borderRadius: 3, background: s.color, flexShrink: 0 }} />
                                 <span style={{ fontSize: 13, color: "var(--text-secondary)", flex: 1 }}>{s.label}</span>
-                                <div style={{ width: 120, height: 8, background: "var(--bg-tertiary)", borderRadius: 4, overflow: "hidden" }}>
-                                    <div style={{ height: "100%", width: `${(s.count / maxCount) * 100}%`, background: s.color, borderRadius: 4, transition: "width 0.6s" }} />
+                                <div className="progress-bar" style={{ width: 120 }}>
+                                    <div className="progress-bar-fill" style={{ width: `${(s.count / maxCount) * 100}%`, background: s.color }} />
                                 </div>
                                 <span style={{ fontSize: 14, fontWeight: 700, color: s.color, minWidth: 24, textAlign: "right" }}>{s.count}</span>
                             </div>
@@ -203,7 +191,7 @@ export default function DashboardPage() {
 
                     {/* Overdue Alert */}
                     {overdueModules.length > 0 && (
-                        <div style={{ background: "#EF444410", borderRadius: "var(--radius-lg)", border: "1px solid #EF444430", padding: "18px 22px", marginBottom: 16 }}>
+                        <div className="alert-card" style={{ background: "#EF444410", border: "1px solid #EF444430", marginBottom: 16 }}>
                             <h3 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 700, color: "#EF4444", display: "flex", alignItems: "center", gap: 8 }}>
                                 <AlertTriangle size={18} /> ⚠️ Modules quá hạn ({overdueModules.length})
                             </h3>
@@ -220,8 +208,8 @@ export default function DashboardPage() {
                     )}
 
                     {/* Recent Activity */}
-                    <div style={{ background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-primary)", padding: "20px 22px", boxShadow: "var(--shadow-xs)" }}>
-                        <h3 style={{ margin: "0 0 14px", fontSize: 16, fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
+                    <div className="section-card">
+                        <h3 className="section-title" style={{ marginBottom: 14 }}>
                             <Activity size={18} color="var(--accent)" /> Hoạt động gần đây
                         </h3>
                         {(() => {
@@ -229,7 +217,7 @@ export default function DashboardPage() {
                             return workActivities.length === 0 ? (
                                 <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>Chưa có hoạt động</div>
                             ) : workActivities.slice(0, 8).map(a => (
-                                <div key={a.id} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--border-primary)" }}>
+                                <div key={a.id} className="activity-item">
                                     <span style={{ fontSize: 16, flexShrink: 0, lineHeight: 1.4 }}>{a.user?.avatar || "🔵"}</span>
                                     <div style={{ flex: 1 }}>
                                         <div style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.4 }}>
@@ -250,23 +238,19 @@ export default function DashboardPage() {
 
 function MetricCard({ icon, label, value, color, sub, alert }) {
     return (
-        <div className="glass-card" style={{
-            padding: "18px 20px", display: "flex", alignItems: "center", gap: 14,
+        <div className="metric-card" style={{
             borderColor: alert ? "#EF444440" : undefined,
             background: alert ? "#EF444408" : undefined,
         }}>
-            <div style={{
-                width: 44, height: 44, borderRadius: 12,
+            <div className="metric-card-icon" style={{
                 background: `${color}15`, color,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                flexShrink: 0,
             }}>{icon}</div>
             <div>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                    <span style={{ fontSize: 24, fontWeight: 800, color: "var(--text-primary)", lineHeight: 1 }}>{value}</span>
-                    {sub && <span style={{ fontSize: 13, fontWeight: 600, color }}>{sub}</span>}
+                    <span className="metric-card-value">{value}</span>
+                    {sub && <span className="metric-card-sub" style={{ color }}>{sub}</span>}
                 </div>
-                <div style={{ fontSize: 12, color: "var(--text-tertiary)", fontWeight: 500, marginTop: 3 }}>{label}</div>
+                <div className="metric-card-label">{label}</div>
             </div>
         </div>
     );
