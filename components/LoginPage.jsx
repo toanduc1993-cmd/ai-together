@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Zap, Eye, EyeOff, User, Lock } from "lucide-react";
 import { useUser } from "@/lib/UserContext";
+import { setCachedData } from "@/lib/cache";
 
 export default function LoginPage() {
     const { login } = useUser();
@@ -19,7 +20,7 @@ export default function LoginPage() {
             fetch(`/api/dashboard?user_id=${user.id}`)
                 .then(r => r.json())
                 .then(data => {
-                    try { localStorage.setItem("ai_together_cache", JSON.stringify({ data, ts: Date.now() })); } catch { }
+                    setCachedData(user.id, data);
                 });
         } catch (err) {
             setError(err.message || "Đăng nhập thất bại");

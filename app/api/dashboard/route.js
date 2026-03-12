@@ -42,8 +42,8 @@ export async function GET(req) {
             notifications,
             myTaskCount,
         });
-        // Cache for 30s, serve stale up to 60s while revalidating
-        response.headers.set("Cache-Control", "public, s-maxage=30, stale-while-revalidate=60");
+        // Response contains per-user data (notifications, myTaskCount) — do not cache on CDN
+        response.headers.set("Cache-Control", "private, no-store");
         return response;
     } catch (err) {
         return NextResponse.json({ error: err.message }, { status: 500 });

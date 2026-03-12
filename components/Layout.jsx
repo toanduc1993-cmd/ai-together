@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Home, FolderKanban, Award, Users, Bell, Zap, LogOut, BarChart3, Moon, Sun, Menu, ClipboardList } from "lucide-react";
 import { useUser } from "@/lib/UserContext";
+import { getCachedData, setCachedData } from "@/lib/cache";
 import LoginPage from "@/components/LoginPage";
 import ChatWidget from "@/components/ChatWidget";
 
@@ -25,25 +26,22 @@ export default function Layout({ children }) {
     const [dark, setDark] = useState(false);
     const [myTaskCount, setMyTaskCount] = useState(0);
 
-    // Fetch task count — instant from cache, then refresh periodically
+    // Fetch task count — instant from user-scoped cache, then refresh periodically
     useEffect(() => {
-        if (!currentUser?.id) return;
-        // Instantly set from cache if available
+        if (!currentUser?.id) { setMyTaskCount(0); return; }
+        // Instantly set from user-scoped cache if available
         try {
-            const raw = localStorage.getItem("ai_together_cache");
-            if (raw) {
-                const { data } = JSON.parse(raw);
-                if (data?.myTaskCount !== undefined) setMyTaskCount(data.myTaskCount);
-            }
-        } catch { }
-        // Only refresh periodically — Dashboard page handles the initial fetch
+            const cached = getCachedData(currentUser.id);
+            if (cached?.data?.myTaskCount !== undefined) setMyTaskCount(cached.data.myTaskCount);
+            else setMyTaskCount(0);
+        } catch { setMyTaskCount(0); }
+        // Refresh periodically
         const fetchCount = async () => {
             try {
                 const res = await fetch(`/api/dashboard?user_id=${currentUser.id}`);
                 const data = await res.json();
                 if (data.myTaskCount !== undefined) setMyTaskCount(data.myTaskCount);
-                // Update shared cache
-                try { localStorage.setItem("ai_together_cache", JSON.stringify({ data, ts: Date.now() })); } catch { }
+                setCachedData(currentUser.id, data);
             } catch { }
         };
         // Delay first fetch by 5s so it doesn't compete with the page's own fetch
