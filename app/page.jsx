@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useUser } from "@/lib/UserContext";
-import { FolderKanban, ArrowRight, TrendingUp, Clock, Activity, CheckCircle2, AlertTriangle, Users, Package, Target, BarChart3 } from "lucide-react";
+import { FolderKanban, ArrowRight, TrendingUp, Clock, Activity, CheckCircle2, AlertTriangle, Users, Package, Target, BarChart3, Plus, ListTodo, Zap } from "lucide-react";
 import Link from "next/link";
 import TempoOverview from "@/components/TempoWidget";
 import { fetchDashboard } from "@/lib/cache";
@@ -44,31 +44,38 @@ export default function DashboardPage() {
     // ===== COMPUTED METRICS =====
     const now = new Date();
     const totalModules = allModules.length;
-    const doneModules = allModules.filter(m => m.status === "done");
+    const doneModules = allModules.filter(m => m.status === "done" || m.status === "approved");
     const inProgressModules = allModules.filter(m => m.status === "in_progress");
     const inReviewModules = allModules.filter(m => m.status === "in_review");
     const changesReqModules = allModules.filter(m => m.status === "changes_requested");
     const plannedModules = allModules.filter(m => m.status === "planned");
-    const overdueModules = allModules.filter(m => m.deadline && new Date(m.deadline) < now && m.status !== "done");
+    const overdueModules = allModules.filter(m => m.deadline && new Date(m.deadline) < now && m.status !== "done" && m.status !== "approved");
+    const dueSoonModules = allModules.filter(m => m.deadline && new Date(m.deadline) >= now && new Date(m.deadline) <= new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000) && m.status !== "done" && m.status !== "approved");
     const completionRate = totalModules > 0 ? Math.round((doneModules.length / totalModules) * 100) : 0;
     const onTimeModules = doneModules.filter(m => !m.deadline || new Date(m.updated_at || m.created_at) <= new Date(m.deadline));
     const onTimeRate = doneModules.length > 0 ? Math.round((onTimeModules.length / doneModules.length) * 100) : 0;
 
+    // My tasks (current user)
+    const myTasks = allModules.filter(m => m.assigned_to === currentUser?.id || (m.assignees || []).some(a => a.id === currentUser?.id));
+    const myOpen = myTasks.filter(m => m.status !== "done" && m.status !== "approved");
+    const myOverdue = myTasks.filter(m => m.deadline && new Date(m.deadline) < now && m.status !== "done" && m.status !== "approved");
+    const myDueSoon = myTasks.filter(m => m.deadline && new Date(m.deadline) >= now && new Date(m.deadline) <= new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000) && m.status !== "done" && m.status !== "approved");
+
     // Per-user metrics
     const userMetrics = users.map(u => {
         const assigned = allModules.filter(m => m.assigned_to === u.id);
-        const done = assigned.filter(m => m.status === "done");
+        const done = assigned.filter(m => m.status === "done" || m.status === "approved");
         const inProg = assigned.filter(m => m.status === "in_progress");
         const review = assigned.filter(m => m.status === "in_review");
         const changesReq = assigned.filter(m => m.status === "changes_requested");
-        const overdue = assigned.filter(m => m.deadline && new Date(m.deadline) < now && m.status !== "done");
+        const overdue = assigned.filter(m => m.deadline && new Date(m.deadline) < now && m.status !== "done" && m.status !== "approved");
         const rate = assigned.length > 0 ? Math.round((done.length / assigned.length) * 100) : 0;
         return { user: u, total: assigned.length, done: done.length, inProgress: inProg.length, inReview: review.length, changesReq: changesReq.length, overdue: overdue.length, rate };
     }).filter(u => u.total > 0).sort((a, b) => b.rate - a.rate || b.done - a.done);
 
-    // Status distribution for chart
+    // Status distribution
     const statusDist = [
-        { key: "planned", label: "Kế hoạch", count: allModules.filter(m => m.status === "planned").length, color: "#6366F1" },
+        { key: "planned", label: "Kế hoạch", count: plannedModules.length, color: "#6366F1" },
         { key: "in_progress", label: "Đang thực hiện", count: inProgressModules.length, color: "#F59E0B" },
         { key: "in_review", label: "Chờ duyệt", count: inReviewModules.length, color: "#8B5CF6" },
         { key: "changes_requested", label: "Yêu cầu sửa", count: changesReqModules.length, color: "#EF4444" },
@@ -76,7 +83,7 @@ export default function DashboardPage() {
     ];
     const maxCount = Math.max(...statusDist.map(s => s.count), 1);
 
-    // Activities grouped by user for Tempo
+    // Activities grouped by user
     const activitiesByUser = {};
     activities.forEach(a => {
         if (!a.user_id) return;
@@ -84,17 +91,96 @@ export default function DashboardPage() {
         activitiesByUser[a.user_id].push(a);
     });
 
+    // Greeting
+    const hour = now.getHours();
+    const greeting = hour < 12 ? "Chào buổi sáng" : hour < 18 ? "Chào buổi chiều" : "Chào buổi tối";
+    const greetingEmoji = hour < 12 ? "☀️" : hour < 18 ? "🌤️" : "🌙";
+
     return (
         <div className="fade-in">
+
+            {/* ===== GREETING BANNER ===== */}
+            <div style={{
+                background: "linear-gradient(135deg, var(--accent) 0%, #8B5CF6 100%)",
+                borderRadius: "var(--radius-lg)", padding: "20px 24px", marginBottom: 20,
+                display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12,
+            }}>
+                <div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>
+                        {greetingEmoji} {greeting}, {currentUser?.display_name?.split(" ").pop() || "bạn"}!
+                    </div>
+                    <div style={{ fontSize: 14, color: "rgba(255,255,255,0.8)", marginTop: 4 }}>
+                        {now.toLocaleDateString("vi-VN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                        {overdueModules.length > 0 && <span style={{ marginLeft: 12, background: "rgba(239,68,68,0.25)", padding: "2px 10px", borderRadius: 20, fontWeight: 700, color: "#FFD4D4" }}>🔴 {overdueModules.length} task quá hạn</span>}
+                        {myDueSoon.length > 0 && <span style={{ marginLeft: 6, background: "rgba(245,158,11,0.25)", padding: "2px 10px", borderRadius: 20, fontWeight: 700, color: "#FEF3C7" }}>⚠️ {myDueSoon.length} task sắp đến hạn</span>}
+                    </div>
+                </div>
+                {/* Quick actions */}
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <Link href="/my-tasks" style={{ background: "rgba(255,255,255,0.15)", color: "#fff", borderRadius: 10, padding: "8px 16px", fontSize: 13, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 6, backdropFilter: "blur(4px)", border: "1px solid rgba(255,255,255,0.2)" }}>
+                        <ListTodo size={15} /> Việc của tôi {myOpen.length > 0 && <span style={{ background: "rgba(255,255,255,0.25)", borderRadius: 10, padding: "0 7px", fontSize: 12 }}>{myOpen.length}</span>}
+                    </Link>
+                    <Link href="/projects" style={{ background: "rgba(255,255,255,0.15)", color: "#fff", borderRadius: 10, padding: "8px 16px", fontSize: 13, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 6, backdropFilter: "blur(4px)", border: "1px solid rgba(255,255,255,0.2)" }}>
+                        <FolderKanban size={15} /> Dự án
+                    </Link>
+                    <Link href="/analytics" style={{ background: "rgba(255,255,255,0.15)", color: "#fff", borderRadius: 10, padding: "8px 16px", fontSize: 13, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 6, backdropFilter: "blur(4px)", border: "1px solid rgba(255,255,255,0.2)" }}>
+                        <BarChart3 size={15} /> Analytics
+                    </Link>
+                </div>
+            </div>
+
             {/* ===== KEY METRICS ROW ===== */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12, marginBottom: 24 }}>
-                <MetricCard icon={<Package size={20} />} label="Tổng" value={totalModules} color="#6366F1" />
-                <MetricCard icon={<Target size={20} />} label="Kế hoạch" value={plannedModules.length} color="#6366F1" />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(155px,1fr))", gap: 12, marginBottom: 20 }}>
+                <MetricCard icon={<Package size={20} />} label="Tổng Tasks" value={totalModules} color="#6366F1" />
                 <MetricCard icon={<Activity size={20} />} label="Đang làm" value={inProgressModules.length} color="#F59E0B" />
                 <MetricCard icon={<Clock size={20} />} label="Chờ duyệt" value={inReviewModules.length} color="#8B5CF6" />
-                <MetricCard icon={<AlertTriangle size={20} />} label="Cần sửa" value={changesReqModules.length} color="#EF4444" alert={changesReqModules.length > 0} />
+                <MetricCard icon={<AlertTriangle size={20} />} label="Quá hạn" value={overdueModules.length} color="#EF4444" alert={overdueModules.length > 0} />
+                <MetricCard icon={<Zap size={20} />} label="Sắp hạn 3 ngày" value={dueSoonModules.length} color="#F97316" alert={dueSoonModules.length > 0} />
                 <MetricCard icon={<CheckCircle2 size={20} />} label="Hoàn thành" value={doneModules.length} color="#10B981" sub={`${completionRate}%`} />
+                <MetricCard icon={<TrendingUp size={20} />} label="Đúng hạn" value={`${onTimeRate}%`} color={onTimeRate >= 80 ? "#10B981" : onTimeRate >= 50 ? "#F59E0B" : "#EF4444"} sub="on-time rate" />
             </div>
+
+            {/* ===== MY TASKS TODAY WIDGET ===== */}
+            {myOpen.length > 0 && (
+                <div style={{
+                    background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-primary)",
+                    padding: "16px 20px", marginBottom: 20,
+                }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
+                            <ListTodo size={17} color="var(--accent)" /> Việc của tôi ({myOpen.length} đang mở)
+                        </h3>
+                        <Link href="/my-tasks" style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>Xem tất cả <ArrowRight size={13} /></Link>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 8 }}>
+                        {(myOverdue.length > 0 ? [...myOverdue, ...myDueSoon, ...myOpen.filter(m => !myOverdue.includes(m) && !myDueSoon.includes(m))] : myOpen).slice(0, 6).map(m => {
+                            const isOverdue = m.deadline && new Date(m.deadline) < now;
+                            const isDueSoon = !isOverdue && m.deadline && new Date(m.deadline) <= new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+                            const STATUS_COLOR = { planned: "#6366F1", in_progress: "#F59E0B", in_review: "#8B5CF6", changes_requested: "#EF4444" };
+                            const statusColor = STATUS_COLOR[m.status] || "#6366F1";
+                            return (
+                                <Link key={m.id} href={`/projects/${m._project?.id}`} style={{ textDecoration: "none" }}>
+                                    <div style={{
+                                        padding: "10px 14px", borderRadius: 10,
+                                        border: isOverdue ? "1px solid rgba(239,68,68,0.4)" : isDueSoon ? "1px solid rgba(249,115,22,0.3)" : "1px solid var(--border-primary)",
+                                        background: isOverdue ? "rgba(239,68,68,0.05)" : "var(--bg-secondary)",
+                                        cursor: "pointer",
+                                    }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                                            <div style={{ width: 8, height: 8, borderRadius: "50%", background: statusColor, flexShrink: 0 }} />
+                                            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.title}</span>
+                                        </div>
+                                        <div style={{ fontSize: 12, color: "var(--text-muted)", display: "flex", gap: 8, alignItems: "center" }}>
+                                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{m._project?.title || "—"}</span>
+                                            {m.deadline && <span style={{ fontWeight: 700, color: isOverdue ? "#EF4444" : isDueSoon ? "#F97316" : "var(--text-muted)", flexShrink: 0 }}>{isOverdue ? "🔴" : isDueSoon ? "⚠️" : "📅"} {new Date(m.deadline).toLocaleDateString("vi-VN")}</span>}
+                                        </div>
+                                    </div>
+                                </Link>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {/* ===== TEMPO OVERVIEW ===== */}
             <TempoOverview users={users} activitiesByUser={activitiesByUser} />
@@ -113,7 +199,6 @@ export default function DashboardPage() {
                             <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>Chưa có dữ liệu</div>
                         ) : (
                             <div>
-                                {/* Table header */}
                                 <div className="table-header" style={{ gridTemplateColumns: "1.5fr 0.6fr 0.6fr 0.6fr 0.6fr 0.6fr 1.2fr" }}>
                                     <span>Thành viên</span><span style={{ textAlign: "center" }}>Giao</span><span style={{ textAlign: "center" }}>Xong</span><span style={{ textAlign: "center" }}>Đang</span><span style={{ textAlign: "center" }}>Trễ</span><span style={{ textAlign: "center" }}>Sửa</span><span>Tiến độ</span>
                                 </div>
@@ -150,19 +235,23 @@ export default function DashboardPage() {
                         </div>
                         {projects.map(p => {
                             const pMods = allModules.filter(m => m._project?.id === p.id);
-                            const pDone = pMods.filter(m => m.status === "done").length;
+                            const pDone = pMods.filter(m => m.status === "done" || m.status === "approved").length;
+                            const pOverdue = pMods.filter(m => m.deadline && new Date(m.deadline) < now && m.status !== "done" && m.status !== "approved").length;
                             const pPct = pMods.length > 0 ? Math.round((pDone / pMods.length) * 100) : 0;
                             return (
                                 <Link key={p.id} href={`/projects/${p.id}`} style={{ textDecoration: "none", display: "block", padding: "12px 0", borderBottom: "1px solid var(--border-primary)" }}>
                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                                         <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{p.title}</span>
-                                        <span style={{ fontSize: 13, fontWeight: 700, color: pPct === 100 ? "#10B981" : "var(--text-tertiary)" }}>{pPct}%</span>
+                                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                            {pOverdue > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: "#EF4444", background: "rgba(239,68,68,0.1)", padding: "1px 7px", borderRadius: 8 }}>🔴 {pOverdue} trễ</span>}
+                                            <span style={{ fontSize: 13, fontWeight: 700, color: pPct === 100 ? "#10B981" : "var(--text-tertiary)" }}>{pPct}%</span>
+                                        </div>
                                     </div>
                                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                         <div className="progress-bar" style={{ flex: 1 }}>
                                             <div className="progress-bar-fill gradient" style={{ width: `${pPct}%`, background: pPct === 100 ? "linear-gradient(90deg, #10B981, #34D399)" : undefined }} />
                                         </div>
-                                        <span style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap" }}>{pDone}/{pMods.length} modules</span>
+                                        <span style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap" }}>{pDone}/{pMods.length} tasks</span>
                                     </div>
                                 </Link>
                             );
@@ -172,38 +261,81 @@ export default function DashboardPage() {
 
                 {/* ===== RIGHT COLUMN ===== */}
                 <div>
-                    {/* Module Status Distribution */}
+                    {/* Status Distribution — improved with total count + percentage */}
                     <div className="section-card" style={{ marginBottom: 16 }}>
-                        <h3 className="section-title" style={{ marginBottom: 16 }}>
-                            <BarChart3 size={18} color="#8B5CF6" /> Phân bổ trạng thái Module
+                        <h3 className="section-title" style={{ marginBottom: 4 }}>
+                            <BarChart3 size={18} color="#8B5CF6" /> Phân bổ trạng thái
                         </h3>
-                        {statusDist.map(s => (
-                            <div key={s.key} className="status-bar-item">
-                                <div style={{ width: 12, height: 12, borderRadius: 3, background: s.color, flexShrink: 0 }} />
-                                <span style={{ fontSize: 13, color: "var(--text-secondary)", flex: 1 }}>{s.label}</span>
-                                <div className="progress-bar" style={{ width: 120 }}>
-                                    <div className="progress-bar-fill" style={{ width: `${(s.count / maxCount) * 100}%`, background: s.color }} />
+                        <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 14px" }}>Tổng {totalModules} tasks trong toàn hệ thống</p>
+                        {totalModules === 0 ? <div style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", padding: 16 }}>Chưa có dữ liệu</div> : statusDist.map(s => (
+                            <div key={s.key} style={{ marginBottom: 10 }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        <div style={{ width: 10, height: 10, borderRadius: 3, background: s.color, flexShrink: 0 }} />
+                                        <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{s.label}</span>
+                                    </div>
+                                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{totalModules > 0 ? Math.round((s.count / totalModules) * 100) : 0}%</span>
+                                        <span style={{ fontSize: 14, fontWeight: 700, color: s.color, minWidth: 24, textAlign: "right" }}>{s.count}</span>
+                                    </div>
                                 </div>
-                                <span style={{ fontSize: 14, fontWeight: 700, color: s.color, minWidth: 24, textAlign: "right" }}>{s.count}</span>
+                                <div style={{ height: 7, background: "var(--bg-tertiary)", borderRadius: 4, overflow: "hidden" }}>
+                                    <div style={{ height: "100%", width: `${totalModules > 0 ? (s.count / totalModules) * 100 : 0}%`, background: s.color, borderRadius: 4, transition: "width 0.6s ease" }} />
+                                </div>
                             </div>
                         ))}
+                        {/* On-time rate highlight */}
+                        <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border-primary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ fontSize: 13, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}><TrendingUp size={14} color="#10B981" /> Tỷ lệ hoàn thành đúng hạn</span>
+                            <span style={{ fontSize: 18, fontWeight: 800, color: onTimeRate >= 80 ? "#10B981" : onTimeRate >= 50 ? "#F59E0B" : "#EF4444" }}>{onTimeRate}%</span>
+                        </div>
                     </div>
 
                     {/* Overdue Alert */}
                     {overdueModules.length > 0 && (
-                        <div className="alert-card" style={{ background: "#EF444410", border: "1px solid #EF444430", marginBottom: 16 }}>
+                        <div className="alert-card" style={{ background: "#EF444410", border: "1px solid #EF444330", marginBottom: 16 }}>
                             <h3 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 700, color: "#EF4444", display: "flex", alignItems: "center", gap: 8 }}>
-                                <AlertTriangle size={18} /> ⚠️ Modules quá hạn ({overdueModules.length})
+                                <AlertTriangle size={18} /> Tasks quá hạn ({overdueModules.length})
                             </h3>
-                            {overdueModules.slice(0, 5).map(m => (
-                                <Link key={m.id} href={`/projects/${m._project?.id}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #EF444418", textDecoration: "none" }}>
-                                    <div>
-                                        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{m.title}</div>
-                                        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{m._project?.title} — {m.assignee?.display_name || "—"}</div>
-                                    </div>
-                                    <span style={{ fontSize: 12, fontWeight: 700, color: "#EF4444" }}>📅 {new Date(m.deadline).toLocaleDateString("vi-VN")}</span>
-                                </Link>
-                            ))}
+                            {overdueModules.slice(0, 5).map(m => {
+                                const assigneeUser = users.find(u => u.id === m.assigned_to);
+                                const daysLate = Math.floor((now - new Date(m.deadline)) / (1000 * 60 * 60 * 24));
+                                return (
+                                    <Link key={m.id} href={`/projects/${m._project?.id}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #EF444418", textDecoration: "none" }}>
+                                        <div style={{ flex: 1, overflow: "hidden" }}>
+                                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.title}</div>
+                                            <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                                                {m._project?.title} {assigneeUser && `— ${assigneeUser.display_name}`}
+                                            </div>
+                                        </div>
+                                        <span style={{ fontSize: 12, fontWeight: 700, color: "#EF4444", flexShrink: 0, marginLeft: 8 }}>Trễ {daysLate}d</span>
+                                    </Link>
+                                );
+                            })}
+                            {overdueModules.length > 5 && (
+                                <Link href="/analytics" style={{ fontSize: 12, color: "#EF4444", display: "block", marginTop: 8, textDecoration: "none", fontWeight: 600 }}>+ {overdueModules.length - 5} tasks khác →</Link>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Due Soon */}
+                    {dueSoonModules.length > 0 && overdueModules.length === 0 && (
+                        <div style={{ background: "rgba(249,115,22,0.06)", border: "1px solid rgba(249,115,22,0.25)", borderRadius: "var(--radius-md)", padding: "14px 18px", marginBottom: 16 }}>
+                            <h3 style={{ margin: "0 0 10px", fontSize: 15, fontWeight: 700, color: "#F97316", display: "flex", alignItems: "center", gap: 8 }}>
+                                ⚠️ Sắp đến hạn ({dueSoonModules.length})
+                            </h3>
+                            {dueSoonModules.slice(0, 4).map(m => {
+                                const assigneeUser = users.find(u => u.id === m.assigned_to);
+                                return (
+                                    <Link key={m.id} href={`/projects/${m._project?.id}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid rgba(249,115,22,0.12)", textDecoration: "none" }}>
+                                        <div>
+                                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{m.title}</div>
+                                            <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{m._project?.title} {assigneeUser && `— ${assigneeUser.display_name}`}</div>
+                                        </div>
+                                        <span style={{ fontSize: 12, fontWeight: 700, color: "#F97316", flexShrink: 0, marginLeft: 8 }}>📅 {new Date(m.deadline).toLocaleDateString("vi-VN")}</span>
+                                    </Link>
+                                );
+                            })}
                         </div>
                     )}
 
