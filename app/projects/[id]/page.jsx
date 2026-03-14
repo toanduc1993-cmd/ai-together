@@ -41,6 +41,10 @@ export default function ProjectDetailPage({ params }) {
     const { currentUser, isProjectLead } = useUser();
     const [project, setProject] = useState(null);
     const [modules, setModules] = useState([]);
+    const [epics, setEpics] = useState([]);
+    const [expandedEpic, setExpandedEpic] = useState(null);
+    const [showAddEpic, setShowAddEpic] = useState(false);
+    const [showEditEpic, setShowEditEpic] = useState(null);
     const [users, setUsers] = useState([]);
     const [expandedModule, setExpandedModule] = useState(null);
     const [checklists, setChecklists] = useState({});
@@ -104,14 +108,16 @@ export default function ProjectDetailPage({ params }) {
 
     const reload = async () => {
         try {
-            const [pRes, mRes, uRes] = await Promise.all([
+            const [pRes, mRes, uRes, eRes] = await Promise.all([
                 fetch(`/api/projects`).then(r => r.json()),
                 fetch(`/api/modules?project_id=${id}`).then(r => r.json()),
                 fetch("/api/users").then(r => r.json()),
+                fetch(`/api/epics?project_id=${id}`).then(r => r.json())
             ]);
             setProject((Array.isArray(pRes) ? pRes : []).find(p => p.id === id) || null);
             setModules(Array.isArray(mRes) ? mRes : []);
             setUsers(Array.isArray(uRes) ? uRes : []);
+            setEpics(Array.isArray(eRes) ? eRes : []);
             setLoading(false);
         } catch { setLoading(false); }
     };
@@ -161,6 +167,41 @@ export default function ProjectDetailPage({ params }) {
         }
     };
 
+    
+    const toggleEpic = (epicId) => {
+        setExpandedEpic(expandedEpic === epicId ? null : epicId);
+    };
+
+    const addEpic = async () => {
+        if (!form.epic_title?.trim()) { setError("Tên Epic bắt buộc"); return; }
+        setError("");
+        const res = await fetch("/api/epics", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...form, title: form.epic_title, description: form.epic_description, project_id: id, created_by: currentUser.id }),
+        });
+        if (!res.ok) { setError((await res.json()).error); return; }
+        setShowAddEpic(false); setForm({}); reload();
+    };
+
+    const updateEpic = async (epicId) => {
+        if (!form.epic_title?.trim()) { setError("Tên Epic bắt buộc"); return; }
+        setError("");
+        const res = await fetch("/api/epics", {
+            method: "PUT", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: epicId, title: form.epic_title, description: form.epic_description }),
+        });
+        if (!res.ok) { setError((await res.json()).error); return; }
+        setShowEditEpic(null); setForm({}); reload();
+    };
+
+    const deleteEpic = async (epicId, epicTitle) => {
+        if (!confirm(`⚠️ Xóa Epic "${epicTitle}"? \nSẽ xóa luôn tất cả các Tasks (Modules) bên trong. Không thể hoàn tác!`)) return;
+        try {
+            const res = await fetch(`/api/epics?id=${epicId}`, { method: "DELETE" });
+            if (res.ok) reload();
+        } catch { }
+    };
+
     const handleDeleteModule = async (moduleId, moduleTitle) => {
         if (!confirm(`⚠️ Xóa module "${moduleTitle}"?\n\nSẽ xóa luôn tất cả checklist và deliverables liên quan. Không thể hoàn tác!`)) return;
         try {
@@ -174,7 +215,7 @@ export default function ProjectDetailPage({ params }) {
         setError("");
         const res = await fetch("/api/modules", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...form, project_id: id, created_by: currentUser.id }),
+            body: JSON.stringify({ ...form, project_id: id, created_by: currentUser.id, epic_id: form.epic_id }),
         });
         if (!res.ok) { setError((await res.json()).error); return; }
         const newModule = await res.json();
@@ -619,45 +660,96 @@ export default function ProjectDetailPage({ params }) {
                 )}
             </div>
 
-            {/* Modules toolbar */}
+            {/* Epics & Modules toolbar */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                 <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
-                    <Package size={ICO.md} color="var(--accent)" /> Modules ({modules.length})
+                    <Package size={ICO.md} color="var(--accent)" /> Epics & Tasks ({epics.length} Epics, {modules.length} Tasks)
                 </h3>
                 <div style={{ display: "flex", gap: 8 }}>
                     {/* Peer assignment button — ANY user can assign */}
                     <button onClick={() => setShowAssignModal(true)} className="btn-ghost" style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13 }}>
-                        <UserPlus size={ICO.sm} /> Giao Module
+                        <UserPlus size={ICO.sm} /> Giao Task
                     </button>
                     {isChairman && (
-                        <button onClick={() => { setForm({}); setShowAddModule(true); setError(""); }} className="btn-primary" style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 14 }}>
-                            <Plus size={ICO.sm} /> Thêm Module
-                        </button>
+                        <>
+                            <button onClick={() => { setForm({}); setShowAddEpic(true); setError(""); }} className="btn-ghost" style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13 }}>
+                                <Plus size={ICO.sm} /> Thêm Epic
+                            </button>
+                            <button onClick={() => { setForm({}); setShowAddModule(true); setError(""); }} className="btn-primary" style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 14 }}>
+                                <Plus size={ICO.sm} /> Thêm Task
+                            </button>
+                        </>
                     )}
                 </div>
             </div>
 
-            {/* Module list — non-chairman only sees assigned modules */}
+            {/* Epics list — non-chairman only sees assigned Tasks inside Epics */}
             {(() => {
-                const visibleModules = isChairman ? modules : modules.filter(m => m.assigned_to === currentUser?.id || (m.assignees || []).some(a => a.id === currentUser?.id));
-                return visibleModules.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: 48, color: "var(--text-muted)", fontSize: 15, background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-primary)" }}>
-                        {isChairman ? 'Chưa có module. Nhấn "Thêm Module" để bắt đầu!' : "Bạn chưa được giao module nào."}
-                    </div>
-                ) : visibleModules.map(mod => {
-                    const sc = STATUS_CFG[mod.status] || STATUS_CFG.planned;
-                    const pc = PRIORITY_CFG[mod.priority] || PRIORITY_CFG.medium;
-                    const isExpanded = expandedModule === mod.id;
-                    const items = checklists[mod.id] || [];
-                    const moduleFiles = files[mod.id] || [];
-                    const moduleAssignees = mod.assignees || (mod.assignee ? [mod.assignee] : []);
-                    const isOwner = currentUser?.id === mod.assigned_to || moduleAssignees.some(a => a.id === currentUser?.id);
-                    const canStart = isOwner && mod.status === "planned";
-                    const canComplete = isOwner && (mod.status === "in_progress" || mod.status === "changes_requested");
-                    const canReview = isChairman && mod.status === "in_review";
+                if (epics.length === 0) {
+                    return (
+                        <div style={{ textAlign: "center", padding: 48, color: "var(--text-muted)", fontSize: 15, background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-primary)" }}>
+                            {isChairman ? 'Chưa có Epic nào. Nhấn "Thêm Epic" để bắt đầu!' : "Dự án hiện chưa có cấu trúc phân việc nào."}
+                        </div>
+                    );
+                }
+
+                // Sort epics by creation time
+                const sortedEpics = [...epics].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+                return sortedEpics.map(epic => {
+                    // Epics without an ID match Uncategorized modules if epic_id is null
+                    const epicModules = modules.filter(m => m.epic_id === epic.id || (epic.title.includes("Chưa phân loại") && !m.epic_id));
+                    
+                    // Filter down to visible modules for current user
+                    const visibleModulesInEpic = isChairman ? epicModules : epicModules.filter(m => m.assigned_to === currentUser?.id || (m.assignees || []).some(a => a.id === currentUser?.id));
+                    
+                    // Always show expanded if there's only 1 default Epic and it has items, otherwise respect state
+                    const isEpicExpanded = expandedEpic === epic.id || (epics.length === 1 && visibleModulesInEpic.length > 0);
 
                     return (
-                        <div key={mod.id} id={`module-${mod.id}`} className="glass-card" style={{ marginBottom: 8, overflow: "hidden", borderColor: isExpanded ? "var(--border-active)" : undefined }}>
+                        <div key={epic.id} className="glass-card" style={{ marginBottom: 16, overflow: "hidden", border: isEpicExpanded ? "1px solid var(--border-active)" : "1px solid var(--border-primary)" }}>
+                            {/* Epic Header */}
+                            <div onClick={() => toggleEpic(epic.id)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", cursor: "pointer", background: isEpicExpanded ? "var(--bg-secondary)" : "transparent" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                    {isEpicExpanded ? <ChevronDown size={ICO.md} color="var(--accent)" /> : <ChevronRight size={ICO.md} color="var(--text-muted)" />}
+                                    <h4 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
+                                        {epic.title} 
+                                        <span style={{ fontSize: 12, fontWeight: 400, color: "var(--text-muted)", background: "var(--bg-tertiary)", padding: "2px 8px", borderRadius: 12 }}>{epicModules.length} Tasks</span>
+                                    </h4>
+                                </div>
+                                
+                                {isChairman && !epic.title.includes("Chưa phân loại") && (
+                                    <div style={{ display: "flex", gap: 6 }}>
+                                        <button onClick={(e) => { e.stopPropagation(); setForm({ epic_title: epic.title, epic_description: epic.description }); setShowEditEpic(epic.id); }} className="btn-ghost" style={{ padding: "4px 8px", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>✏️ Sửa</button>
+                                        <button onClick={(e) => { e.stopPropagation(); deleteEpic(epic.id, epic.title); }} className="btn-ghost" style={{ background: "rgba(239,68,68,0.1)", color: "#EF4444", padding: "4px 8px", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>🗑️ Xóa</button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Epic Content */}
+                            {isEpicExpanded && (
+                                <div style={{ padding: "16px 18px 16px 42px", borderTop: "1px solid var(--border-primary)" }}>
+                                    {epic.description && <p style={{ color: "var(--text-tertiary)", fontSize: 14, margin: "0 0 16px", lineHeight: 1.6 }}>{epic.description}</p>}
+                                    
+                                    {visibleModulesInEpic.length === 0 ? (
+                                        <div style={{ padding: 20, color: "var(--text-muted)", fontSize: 14, textAlign: "center", background: "var(--bg-tertiary)", borderRadius: 8 }}>
+                                            {isChairman ? "Epic này chưa có Task nào." : "Bạn không có Task nào trong Epic này."}
+                                        </div>
+                                    ) : (
+                                        visibleModulesInEpic.map(mod => {
+                                            const sc = STATUS_CFG[mod.status] || STATUS_CFG.planned;
+                                            const pc = PRIORITY_CFG[mod.priority] || PRIORITY_CFG.medium;
+                                            const isExpanded = expandedModule === mod.id;
+                                            const items = checklists[mod.id] || [];
+                                            const moduleFiles = files[mod.id] || [];
+                                            const moduleAssignees = mod.assignees || (mod.assignee ? [mod.assignee] : []);
+                                            const isOwner = currentUser?.id === mod.assigned_to || moduleAssignees.some(a => a.id === currentUser?.id);
+                                            const canStart = isOwner && mod.status === "planned";
+                                            const canComplete = isOwner && (mod.status === "in_progress" || mod.status === "changes_requested");
+                                            const canReview = isChairman && mod.status === "in_review";
+
+                                            return (
+                                                <div key={mod.id} id={`module-${mod.id}`} style={{ marginBottom: 8, overflow: "hidden", background: "var(--bg-elevated)", border: "1px solid var(--border-primary)", borderRadius: "var(--radius-md)", borderColor: isExpanded ? "var(--border-active)" : undefined }}>
                             {/* Module header */}
                             <div onClick={() => toggleModule(mod.id)} style={{ display: "flex", alignItems: "center", padding: "14px 18px", cursor: "pointer", gap: 12 }}>
                                 {isExpanded ? <ChevronDown size={ICO.md} color="var(--accent)" /> : <ChevronRight size={ICO.md} color="var(--text-muted)" />}
@@ -1037,17 +1129,46 @@ export default function ProjectDetailPage({ params }) {
                                     </div>
                                 </div>
                             )}
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            )}
                         </div>
                     );
                 });
             })()}
 
             {/* ===== MODALS ===== */}
+            {/* Add Epic Modal */}
+            {showAddEpic && (
+                <Modal title="📁 Thêm Epic" onClose={() => setShowAddEpic(false)}>
+                    {error && <div style={{ color: "var(--red)", fontSize: 12, marginBottom: 8 }}>⚠️ {error}</div>}
+                    <Input label="Tên Epic *" value={form.epic_title || ""} onChange={e => setForm(f => ({ ...f, epic_title: e.target.value }))} placeholder="Ví dụ: Tính lương, Nhập điểm danh..." />
+                    <Input label="Mô tả Epic" value={form.epic_description || ""} onChange={e => setForm(f => ({ ...f, epic_description: e.target.value }))} placeholder="Mô tả chung cho nhánh tính năng này..." />
+                    <button onClick={addEpic} className="btn-primary" style={{ width: "100%", marginTop: 12 }}>Tạo Epic</button>
+                </Modal>
+            )}
+
+            {/* Edit Epic Modal */}
+            {showEditEpic && (
+                <Modal title="✏️ Sửa Epic" onClose={() => setShowEditEpic(null)}>
+                    {error && <div style={{ color: "var(--red)", fontSize: 12, marginBottom: 8 }}>⚠️ {error}</div>}
+                    <Input label="Tên Epic *" value={form.epic_title || ""} onChange={e => setForm(f => ({ ...f, epic_title: e.target.value }))} />
+                    <Input label="Mô tả Epic" value={form.epic_description || ""} onChange={e => setForm(f => ({ ...f, epic_description: e.target.value }))} />
+                    <button onClick={() => updateEpic(showEditEpic)} className="btn-primary" style={{ width: "100%", marginTop: 12 }}>Lưu thay đổi</button>
+                </Modal>
+            )}
 
             {showAddModule && (
-                <Modal title="📦 Thêm Module" onClose={() => setShowAddModule(false)}>
+                <Modal title="📦 Thêm Task" onClose={() => setShowAddModule(false)}>
                     {error && <div style={{ color: "var(--red)", fontSize: 12, marginBottom: 8 }}>⚠️ {error}</div>}
-                    <Input label="Tên module *" value={form.title || ""} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+                    <Input label="Tên Task *" value={form.title || ""} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Nhập tên nhiệm vụ (Task)..." />
+                    <Select label="Thuộc Epic *" value={form.epic_id || ""} onChange={e => setForm(f => ({ ...f, epic_id: e.target.value }))}>
+                        <option value="">-- Chọn Epic (Bắt buộc) --</option>
+                        {epics.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
+                    </Select>
                     <Input label="Mô tả" value={form.description || ""} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                         <div>
@@ -1076,9 +1197,9 @@ export default function ProjectDetailPage({ params }) {
                     </div>
                     <Input label="Deadline" type="date" value={form.deadline || ""} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))} />
                     <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 8, lineHeight: 1.5 }}>
-                        💡 Sau khi tạo module, bạn có thể tạo checklist và đính kèm tài liệu nghiệp vụ.
+                        💡 Sau khi tạo Task, bạn có thể tạo checklist con và đính kèm tài liệu nghiệp vụ.
                     </p>
-                    <button onClick={addModule} className="btn-primary" style={{ width: "100%", marginTop: 8 }}>Tạo Module</button>
+                    <button onClick={addModule} className="btn-primary" style={{ width: "100%", marginTop: 8 }} disabled={!form.epic_id}>Tạo Task</button>
                 </Modal>
             )}
 

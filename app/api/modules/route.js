@@ -38,6 +38,7 @@ export async function POST(req) {
 
         const mod = await createModule({
             project_id: body.project_id,
+            epic_id: body.epic_id || null,
             title: body.title,
             description: body.description || "",
             assigned_to: assignedIds[0] || null,
