@@ -48,6 +48,7 @@ export default function ProjectDetailPage({ params }) {
     const [showRetro, setShowRetro] = useState(null); // epic object
     const [retroForm, setRetroForm] = useState({ wins: '', improvements: '', lessons: '' });
     const [retroSaving, setRetroSaving] = useState(false);
+    const [viewMode, setViewMode] = useState('list'); // 'list' | 'gantt'
     const [users, setUsers] = useState([]);
     const [expandedModule, setExpandedModule] = useState(null);
     const [checklists, setChecklists] = useState({});
@@ -669,6 +670,17 @@ export default function ProjectDetailPage({ params }) {
                     <Package size={ICO.md} color="var(--accent)" /> Epics & Tasks ({epics.length} Epics, {modules.length} Tasks)
                 </h3>
                 <div style={{ display: "flex", gap: 8 }}>
+                    {/* Feature #2: List / Gantt toggle */}
+                    <div style={{ display: "flex", borderRadius: 10, overflow: "hidden", border: "1px solid var(--border-primary)", background: "var(--bg-secondary)" }}>
+                        {['list', 'gantt'].map(m => (
+                            <button key={m} onClick={() => setViewMode(m)} style={{
+                                padding: "7px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", border: "none",
+                                background: viewMode === m ? "var(--accent)" : "transparent",
+                                color: viewMode === m ? "#fff" : "var(--text-muted)",
+                                transition: "all 0.2s",
+                            }}>{m === 'list' ? '📋 List' : '📅 Timeline'}</button>
+                        ))}
+                    </div>
                     <button onClick={() => setShowAssignModal(true)} className="btn-ghost" style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13 }}>
                         <UserPlus size={ICO.sm} /> Giao Task
                     </button>
@@ -705,8 +717,76 @@ export default function ProjectDetailPage({ params }) {
                 );
             })()}
 
+            {/* Feature #2 — Gantt/Timeline View */}
+            {viewMode === 'gantt' && (() => {
+                const today = new Date(); today.setHours(0,0,0,0);
+                const rangeStart = new Date(today); rangeStart.setDate(today.getDate() - 3);
+                const rangeEnd = new Date(today); rangeEnd.setDate(today.getDate() + 27);
+                const totalDays = 30;
+                const STATUS_COLOR = { planned: '#6366F1', in_progress: '#F59E0B', in_review: '#8B5CF6', approved: '#10B981', done: '#10B981', changes_requested: '#EF4444' };
+                const STATUS_LABEL = { planned: '📋', in_progress: '🔨', in_review: '👀', approved: '✅', done: '✅', changes_requested: '🔄' };
+                const modsWithDeadline = modules.filter(m => m.deadline);
+                const modsWithout = modules.filter(m => !m.deadline);
+                const dayLabels = [];
+                for (let i = 0; i < totalDays; i += 3) {
+                    const d = new Date(rangeStart); d.setDate(d.getDate() + i);
+                    dayLabels.push({ label: d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }), pct: (i / totalDays) * 100 });
+                }
+                const todayPct = Math.max(0, Math.min(100, ((today - rangeStart) / (rangeEnd - rangeStart)) * 100));
+                const renderBar = (mod) => {
+                    const start = mod.created_at ? new Date(mod.created_at) : today;
+                    const end = new Date(mod.deadline);
+                    const barStart = Math.max(0, ((start - rangeStart) / (rangeEnd - rangeStart)) * 100);
+                    const barEnd = Math.min(100, ((end - rangeStart) / (rangeEnd - rangeStart)) * 100);
+                    const barWidth = Math.max(barEnd - barStart, 1.5);
+                    const isOverdue = end < today && mod.status !== 'done' && mod.status !== 'approved';
+                    const color = isOverdue ? '#EF4444' : (STATUS_COLOR[mod.status] || '#6366F1');
+                    return (
+                        <div key={mod.id} style={{ display: 'flex', alignItems: 'center', marginBottom: 6, minHeight: 32 }}>
+                            <div style={{ width: 200, flexShrink: 0, fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', paddingRight: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {STATUS_LABEL[mod.status] || '📋'} {mod.title}
+                            </div>
+                            <div style={{ flex: 1, position: 'relative', height: 28, background: 'var(--bg-tertiary)', borderRadius: 6, overflow: 'hidden' }}>
+                                <div style={{ position: 'absolute', left: `${barStart}%`, width: `${barWidth}%`, height: '100%', background: color, borderRadius: 6, opacity: 0.85, display: 'flex', alignItems: 'center', paddingLeft: 6, transition: 'all 0.4s' }}>
+                                    <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{isOverdue ? '⚠️ Quá hạn' : `${mod.progress_pct || 0}%`}</span>
+                                </div>
+                                <div style={{ position: 'absolute', left: `${todayPct}%`, top: 0, bottom: 0, width: 2, background: 'rgba(239,68,68,0.7)', zIndex: 2 }} />
+                            </div>
+                            <div style={{ width: 70, flexShrink: 0, fontSize: 11, color: 'var(--text-muted)', paddingLeft: 8, whiteSpace: 'nowrap' }}>{new Date(mod.deadline).toLocaleDateString('vi-VN')}</div>
+                        </div>
+                    );
+                };
+                return (
+                    <div className="glass-card" style={{ padding: '20px 24px', marginBottom: 16 }}>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>📅 Timeline ({modsWithDeadline.length} Tasks có deadline)</div>
+                        <div style={{ display: 'flex', marginLeft: 200, marginBottom: 8, position: 'relative', height: 20 }}>
+                            <div style={{ flex: 1, position: 'relative' }}>
+                                {dayLabels.map((d, i) => (
+                                    <span key={i} style={{ position: 'absolute', left: `${d.pct}%`, fontSize: 10, color: 'var(--text-muted)', transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}>{d.label}</span>
+                                ))}
+                            </div>
+                            <div style={{ width: 70 }} />
+                        </div>
+                        {modsWithDeadline.length === 0 ? (
+                            <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32, fontSize: 14 }}>Chưa có Task nào có Deadline. Thêm Deadline cho Task để xem biểu đồ.</div>
+                        ) : (
+                            <>
+                                {modsWithDeadline.map(renderBar)}
+                                {modsWithout.length > 0 && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 10 }}>{modsWithout.length} Task chưa có deadline (ẩn trong Timeline)</div>}
+                            </>
+                        )}
+                        <div style={{ display: 'flex', gap: 16, marginTop: 14, fontSize: 11, color: 'var(--text-muted)', flexWrap: 'wrap' }}>
+                            {[['Kế hoạch','#6366F1'],['Đang làm','#F59E0B'],['Chờ duyệt','#8B5CF6'],['Hoàn thành','#10B981'],['Quá hạn','#EF4444']].map(([lbl,clr]) => (
+                                <span key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 5 }}><div style={{ width: 10, height: 10, borderRadius: 2, background: clr }} />{lbl}</span>
+                            ))}
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><div style={{ width: 2, height: 10, background: '#EF4444' }} />Hôm nay</span>
+                        </div>
+                    </div>
+                );
+            })()}
+
             {/* Epics list — non-chairman only sees assigned Tasks inside Epics */}
-            {(() => {
+            {viewMode === 'list' && (() => {
                 if (epics.length === 0) {
                     return (
                         <div style={{ textAlign: "center", padding: 48, color: "var(--text-muted)", fontSize: 15, background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-primary)" }}>

@@ -274,6 +274,61 @@ export default function AnalyticsPage() {
                     )}
                 </div>
             </div>
+
+            {/* Feature #4 — Sprint / Weekly Report */}
+            {(() => {
+                const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); weekStart.setHours(0,0,0,0);
+                const prevWeekStart = new Date(weekStart); prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+                const thisWeekDone = filteredModules.filter(m => m.updated_at && new Date(m.updated_at) >= weekStart && (m.status === 'done' || m.status === 'approved')).length;
+                const prevWeekDone = filteredModules.filter(m => m.updated_at && new Date(m.updated_at) >= prevWeekStart && new Date(m.updated_at) < weekStart && (m.status === 'done' || m.status === 'approved')).length;
+                const stuck = filteredModules.filter(m => m.status === 'in_progress' && m.updated_at && (now - new Date(m.updated_at)) > 3 * 24 * 60 * 60 * 1000).length;
+                const comingDue = filteredModules.filter(m => m.deadline && new Date(m.deadline) > now && new Date(m.deadline) <= new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000) && m.status !== 'done').length;
+                const trend = prevWeekDone > 0 ? Math.round(((thisWeekDone - prevWeekDone) / prevWeekDone) * 100) : null;
+                const weekDays = [];
+                for (let i = 0; i <= 6; i++) {
+                    const d = new Date(weekStart); d.setDate(d.getDate() + i);
+                    const key = d.toISOString().split('T')[0];
+                    const dayDone = filteredModules.filter(m => m.updated_at && new Date(m.updated_at).toISOString().split('T')[0] === key && (m.status === 'done' || m.status === 'approved')).length;
+                    weekDays.push({ label: d.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit' }), done: dayDone, isPast: d <= now });
+                }
+                const maxDay = Math.max(...weekDays.map(d => d.done), 1);
+                return (
+                    <div style={{ marginTop: 8 }}>
+                        <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>📋 Báo cáo tuần</h2>
+                        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>Tổng hợp hiệu suất đội nhóm trong tuần hiện tại</p>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
+                            <div className="glass-card" style={{ padding: '16px 18px', borderLeft: '4px solid #10B981' }}>
+                                <div style={{ fontSize: 28, fontWeight: 800, color: '#10B981' }}>{thisWeekDone}</div>
+                                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>Task hoàn thành tuần này</div>
+                                {trend !== null && <div style={{ fontSize: 12, fontWeight: 700, color: trend >= 0 ? '#10B981' : '#EF4444', marginTop: 4 }}>{trend >= 0 ? '▲' : '▼'} {Math.abs(trend)}% so tuần trước</div>}
+                            </div>
+                            <div className="glass-card" style={{ padding: '16px 18px', borderLeft: '4px solid #F59E0B' }}>
+                                <div style={{ fontSize: 28, fontWeight: 800, color: '#F59E0B' }}>{prevWeekDone}</div>
+                                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>Task hoàn thành tuần trước</div>
+                            </div>
+                            <div className="glass-card" style={{ padding: '16px 18px', borderLeft: '4px solid #EF4444' }}>
+                                <div style={{ fontSize: 28, fontWeight: 800, color: '#EF4444' }}>{stuck}</div>
+                                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>Task bị kẹt (3+ ngày không cập nhật)</div>
+                            </div>
+                            <div className="glass-card" style={{ padding: '16px 18px', borderLeft: '4px solid #8B5CF6' }}>
+                                <div style={{ fontSize: 28, fontWeight: 800, color: '#8B5CF6' }}>{comingDue}</div>
+                                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>Sắp đến hạn (3 ngày tới)</div>
+                            </div>
+                        </div>
+                        <Panel title="📉 Tiến độ hoàn thành trong tuần" sub="Số task đóng mỗi ngày trong tuần này">
+                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 100 }}>
+                                {weekDays.map((d, i) => (
+                                    <div key={i} style={{ flex: 1, textAlign: 'center' }}>
+                                        <div style={{ fontSize: 12, fontWeight: 700, color: d.done > 0 ? '#10B981' : 'var(--text-muted)', marginBottom: 4 }}>{d.done || ''}</div>
+                                        <div style={{ height: `${Math.max((d.done / maxDay) * 80, d.isPast ? 4 : 0)}px`, background: d.done > 0 ? '#10B981' : 'var(--bg-tertiary)', borderRadius: '6px 6px 0 0', minHeight: d.isPast ? 4 : 0, opacity: d.done > 0 ? 1 : 0.4, transition: 'height 0.5s' }} />
+                                        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{d.label}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </Panel>
+                    </div>
+                );
+            })()}
         </div>
     );
 }
