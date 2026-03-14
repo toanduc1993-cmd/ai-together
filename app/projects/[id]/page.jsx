@@ -670,15 +670,15 @@ export default function ProjectDetailPage({ params }) {
                     <Package size={ICO.md} color="var(--accent)" /> Epics & Tasks ({epics.length} Epics, {modules.length} Tasks)
                 </h3>
                 <div style={{ display: "flex", gap: 8 }}>
-                    {/* Feature #2: List / Gantt toggle */}
+                    {/* View toggle: List / Board / Timeline */}
                     <div style={{ display: "flex", borderRadius: 10, overflow: "hidden", border: "1px solid var(--border-primary)", background: "var(--bg-secondary)" }}>
-                        {['list', 'gantt'].map(m => (
-                            <button key={m} onClick={() => setViewMode(m)} style={{
+                        {[['list','📋 List'],['board','📌 Board'],['gantt','📅 Timeline']].map(([mode, label]) => (
+                            <button key={mode} onClick={() => setViewMode(mode)} style={{
                                 padding: "7px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", border: "none",
-                                background: viewMode === m ? "var(--accent)" : "transparent",
-                                color: viewMode === m ? "#fff" : "var(--text-muted)",
+                                background: viewMode === mode ? "var(--accent)" : "transparent",
+                                color: viewMode === mode ? "#fff" : "var(--text-muted)",
                                 transition: "all 0.2s",
-                            }}>{m === 'list' ? '📋 List' : '📅 Timeline'}</button>
+                            }}>{label}</button>
                         ))}
                     </div>
                     <button onClick={() => setShowAssignModal(true)} className="btn-ghost" style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13 }}>
@@ -712,6 +712,126 @@ export default function ProjectDetailPage({ params }) {
                         <div>
                             <div style={{ fontWeight: 700, fontSize: 14, color: "#EF4444" }}>Có {overdueTasks.length} Task đã quá hạn!</div>
                             <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>Kiểm tra và cập nhật deadline hoặc trạng thái cho các task quá hạn bên dưới.</div>
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {/* ===== KANBAN BOARD VIEW ===== */}
+            {viewMode === 'board' && (() => {
+                const COLUMNS = [
+                    { key: 'planned',           label: 'Kế hoạch',      color: '#6366F1', emoji: '📋' },
+                    { key: 'in_progress',        label: 'Đang làm',      color: '#F59E0B', emoji: '🔨' },
+                    { key: 'in_review',          label: 'Chờ duyệt',     color: '#8B5CF6', emoji: '👀' },
+                    { key: 'changes_requested',  label: 'Cần sửa',       color: '#EF4444', emoji: '🔄' },
+                    { key: 'done',               label: 'Hoàn thành',    color: '#10B981', emoji: '✅' },
+                ];
+                const PRIORITY_COLORS = { critical: '#DC2626', high: '#EF4444', medium: '#F59E0B', low: '#10B981' };
+                const PRIORITY_LABELS = { critical: '🔥 Crit', high: '⬆️ High', medium: '🟡 Med', low: '⬇️ Low' };
+                const now = new Date();
+
+                const changeStatus = async (modId, newStatus) => {
+                    await fetch('/api/modules', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: modId, status: newStatus, user_id: currentUser?.id, project_id: id }),
+                    });
+                    reload();
+                };
+
+                return (
+                    <div style={{ overflowX: 'auto', paddingBottom: 16 }}>
+                        <div style={{ display: 'flex', gap: 12, minWidth: 900 }}>
+                            {COLUMNS.map(col => {
+                                const colTasks = modules.filter(m => m.status === col.key);
+                                return (
+                                    <div key={col.key} style={{ flex: '0 0 220px', minWidth: 220 }}>
+                                        {/* Column Header */}
+                                        <div style={{
+                                            background: 'var(--bg-elevated)', borderRadius: '12px 12px 0 0',
+                                            borderTop: `3px solid ${col.color}`,
+                                            padding: '10px 14px',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                            border: '1px solid var(--border-primary)', borderTop: `3px solid ${col.color}`,
+                                        }}>
+                                            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                {col.emoji} {col.label}
+                                            </span>
+                                            <span style={{ fontSize: 12, fontWeight: 700, color: col.color, background: `${col.color}18`, borderRadius: 20, padding: '1px 8px' }}>{colTasks.length}</span>
+                                        </div>
+
+                                        {/* Task Cards */}
+                                        <div style={{ background: 'var(--bg-secondary)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border-primary)', borderTop: 'none', minHeight: 80, padding: '8px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                            {colTasks.length === 0 && (
+                                                <div style={{ color: 'var(--text-muted)', fontSize: 12, textAlign: 'center', padding: '16px 0', fontStyle: 'italic' }}>Không có task</div>
+                                            )}
+                                            {colTasks.map(mod => {
+                                                const epic = epics.find(e => e.id === mod.epic_id);
+                                                const assigneeUser = users.find(u => u.id === mod.assigned_to);
+                                                const isOverdue = mod.deadline && new Date(mod.deadline) < now && col.key !== 'done';
+                                                const isDueSoon = !isOverdue && mod.deadline && new Date(mod.deadline) <= new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000) && col.key !== 'done';
+                                                const pColor = PRIORITY_COLORS[mod.priority] || '#6366F1';
+                                                const labels = Array.isArray(mod.labels) ? mod.labels : [];
+
+                                                // next status (quick move buttons)
+                                                const colIdx = COLUMNS.findIndex(c => c.key === col.key);
+                                                const prevCol = colIdx > 0 ? COLUMNS[colIdx - 1] : null;
+                                                const nextCol = colIdx < COLUMNS.length - 1 ? COLUMNS[colIdx + 1] : null;
+
+                                                return (
+                                                    <div key={mod.id} style={{
+                                                        background: 'var(--bg-elevated)', borderRadius: 10, padding: '10px 12px',
+                                                        border: isOverdue ? '1px solid rgba(239,68,68,0.4)' : '1px solid var(--border-primary)',
+                                                        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                                                        cursor: 'default',
+                                                    }}>
+                                                        {/* Epic chip */}
+                                                        {epic && <div style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 700, marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{epic.title}</div>}
+
+                                                        {/* Title */}
+                                                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.4, marginBottom: 6 }}>{mod.title}</div>
+
+                                                        {/* Labels */}
+                                                        {labels.length > 0 && (
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginBottom: 6 }}>
+                                                                {labels.slice(0, 3).map((l, i) => (
+                                                                    <span key={i} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: `hsl(${(l.charCodeAt(0) * 47) % 360}, 65%, 20%)`, color: `hsl(${(l.charCodeAt(0) * 47) % 360}, 80%, 75%)`, fontWeight: 600 }}>{l}</span>
+                                                                ))}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Footer: priority + assignee + deadline */}
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, flexWrap: 'wrap' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                                {mod.priority && <span style={{ fontSize: 10, fontWeight: 700, color: pColor, background: `${pColor}15`, padding: '1px 5px', borderRadius: 4 }}>{PRIORITY_LABELS[mod.priority] || mod.priority}</span>}
+                                                                {assigneeUser && <span style={{ fontSize: 14 }} title={assigneeUser.display_name}>{assigneeUser.avatar || '👤'}</span>}
+                                                            </div>
+                                                            {mod.deadline && (
+                                                                <span style={{ fontSize: 10, fontWeight: 700, color: isOverdue ? '#EF4444' : isDueSoon ? '#F97316' : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                                                                    {isOverdue ? '🔴' : isDueSoon ? '⚠️' : '📅'} {new Date(mod.deadline).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Move buttons */}
+                                                        {(isChairman || isOwner) && (
+                                                            <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
+                                                                {prevCol && <button onClick={() => changeStatus(mod.id, prevCol.key)} style={{ flex: 1, fontSize: 10, padding: '3px 0', borderRadius: 6, border: `1px solid ${prevCol.color}30`, background: `${prevCol.color}10`, color: prevCol.color, cursor: 'pointer', fontWeight: 600 }}>← {prevCol.label.split(' ')[0]}</button>}
+                                                                {nextCol && <button onClick={() => changeStatus(mod.id, nextCol.key)} style={{ flex: 1, fontSize: 10, padding: '3px 0', borderRadius: 6, border: `1px solid ${nextCol.color}30`, background: `${nextCol.color}10`, color: nextCol.color, cursor: 'pointer', fontWeight: 600 }}>{nextCol.label.split(' ')[0]} →</button>}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+
+                                            {/* Add task shortcut for planned column */}
+                                            {col.key === 'planned' && isChairman && (
+                                                <button onClick={() => { setForm({ status: 'planned' }); setShowAddModule(true); }} style={{ width: '100%', padding: '8px', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', background: 'transparent', border: '1px dashed var(--border-primary)', borderRadius: 8, cursor: 'pointer', marginTop: 2 }}>+ Thêm Task</button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 );
