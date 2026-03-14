@@ -45,6 +45,9 @@ export default function ProjectDetailPage({ params }) {
     const [expandedEpic, setExpandedEpic] = useState(null);
     const [showAddEpic, setShowAddEpic] = useState(false);
     const [showEditEpic, setShowEditEpic] = useState(null);
+    const [showRetro, setShowRetro] = useState(null); // epic object
+    const [retroForm, setRetroForm] = useState({ wins: '', improvements: '', lessons: '' });
+    const [retroSaving, setRetroSaving] = useState(false);
     const [users, setUsers] = useState([]);
     const [expandedModule, setExpandedModule] = useState(null);
     const [checklists, setChecklists] = useState({});
@@ -776,6 +779,9 @@ export default function ProjectDetailPage({ params }) {
                                 {isChairman && !epic.title.includes("Chưa phân loại") && (
                                     <div style={{ display: "flex", gap: 6 }}>
                                         <button onClick={(e) => { e.stopPropagation(); setForm({ epic_title: epic.title, epic_description: epic.description }); setShowEditEpic(epic.id); }} className="btn-ghost" style={{ padding: "4px 8px", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>✏️ Sửa</button>
+                                        {epicProgress === 100 && (
+                                            <button onClick={(e) => { e.stopPropagation(); setRetroForm({ wins: '', improvements: '', lessons: '' }); setShowRetro(epic); }} className="btn-ghost" style={{ padding: "4px 8px", fontSize: 12, display: "flex", alignItems: "center", gap: 4, color: "#10B981", background: "rgba(16,185,129,0.1)" }}>🌟 Tổng kết</button>
+                                        )}
                                         <button onClick={(e) => { e.stopPropagation(); deleteEpic(epic.id, epic.title); }} className="btn-ghost" style={{ background: "rgba(239,68,68,0.1)", color: "#EF4444", padding: "4px 8px", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>🗑️ Xóa</button>
                                     </div>
                                 )}
@@ -1193,6 +1199,47 @@ export default function ProjectDetailPage({ params }) {
                                         );
                                     })}
 
+                                    {/* Feature #8: GitHub PR / Commit Link */}
+                                    <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--border-primary)" }}>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-tertiary)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                                            <span style={{ fontSize: 16 }}>🔗</span> GitHub PR / Commit Link
+                                        </div>
+                                        {mod.github_pr_url ? (
+                                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                                <a href={mod.github_pr_url} target="_blank" rel="noopener noreferrer"
+                                                    style={{ fontSize: 13, color: "var(--accent)", background: "var(--accent-bg)", padding: "5px 12px", borderRadius: 8, textDecoration: "none", fontWeight: 600, display: "flex", alignItems: "center", gap: 6, flex: 1, overflow: "hidden" }}>
+                                                    <span>🔗</span>
+                                                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{mod.github_pr_url}</span>
+                                                </a>
+                                                {(isChairman || isOwner) && (
+                                                    <button onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        await fetch("/api/modules", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: mod.id, github_pr_url: null }) });
+                                                        reload();
+                                                    }} style={{ background: "rgba(239,68,68,0.1)", color: "#EF4444", border: "none", borderRadius: 6, padding: "5px 8px", cursor: "pointer", fontSize: 12 }}>✕ Xóa</button>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            (isChairman || isOwner) && (
+                                                <div style={{ display: "flex", gap: 8 }}>
+                                                    <input
+                                                        placeholder="https://github.com/owner/repo/pull/123"
+                                                        className="input-field"
+                                                        style={{ flex: 1, fontSize: 13 }}
+                                                        onKeyDown={async (e) => {
+                                                            if (e.key === "Enter" && e.target.value.startsWith("https://")) {
+                                                                e.stopPropagation();
+                                                                await fetch("/api/modules", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: mod.id, github_pr_url: e.target.value }) });
+                                                                reload();
+                                                            }
+                                                        }}
+                                                    />
+                                                    <span style={{ fontSize: 12, color: "var(--text-muted)", alignSelf: "center" }}>Enter để lưu</span>
+                                                </div>
+                                            )
+                                        )}
+                                    </div>
+
                                     {/* Discussion Thread */}
                                     <div style={{ marginTop: 16 }}>
                                         <DiscussionThread moduleId={mod.id} projectId={id} />
@@ -1230,6 +1277,44 @@ export default function ProjectDetailPage({ params }) {
                     <button onClick={() => updateEpic(showEditEpic)} className="btn-primary" style={{ width: "100%", marginTop: 12 }}>Lưu thay đổi</button>
                 </Modal>
             )}
+
+            {/* Feature #6 — Epic Retrospective Modal */}
+            {showRetro && (
+                <Modal title={`🌟 Tổng kết Epic: ${showRetro.title}`} onClose={() => setShowRetro(null)} width={540}>
+                    <div style={{ marginBottom: 16, padding: "10px 14px", background: "rgba(16,185,129,0.08)", borderRadius: 10, border: "1px solid rgba(16,185,129,0.25)", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                        💡 Ghi lại những điểm nổi bật sau khi Epic hoàn thành để rút kinh nghiệm cho lần sau.
+                    </div>
+                    <div style={{ marginBottom: 12 }}>
+                        <label style={{ fontSize: 13, fontWeight: 700, color: "#10B981", display: "block", marginBottom: 6 }}>✅ Điểm thành công</label>
+                        <textarea value={retroForm.wins} onChange={e => setRetroForm(f => ({ ...f, wins: e.target.value }))}
+                            placeholder="Những gì đã làm tốt, hoàn thành đúng hạn, chất lượng cao..." className="input-field" rows={3} style={{ width: "100%", resize: "vertical" }} />
+                    </div>
+                    <div style={{ marginBottom: 12 }}>
+                        <label style={{ fontSize: 13, fontWeight: 700, color: "#F59E0B", display: "block", marginBottom: 6 }}>⚠️ Điểm cần cải thiện</label>
+                        <textarea value={retroForm.improvements} onChange={e => setRetroForm(f => ({ ...f, improvements: e.target.value }))}
+                            placeholder="Những gì chưa làm tốt, trễ hạn, thiếu sót..." className="input-field" rows={3} style={{ width: "100%", resize: "vertical" }} />
+                    </div>
+                    <div style={{ marginBottom: 16 }}>
+                        <label style={{ fontSize: 13, fontWeight: 700, color: "#6366F1", display: "block", marginBottom: 6 }}>💡 Bài học kinh nghiệm</label>
+                        <textarea value={retroForm.lessons} onChange={e => setRetroForm(f => ({ ...f, lessons: e.target.value }))}
+                            placeholder="Những bài học rút ra cho các sprint/epic tiếp theo..." className="input-field" rows={3} style={{ width: "100%", resize: "vertical" }} />
+                    </div>
+                    <button disabled={retroSaving} onClick={async () => {
+                        setRetroSaving(true);
+                        await fetch("/api/retros", {
+                            method: "POST", headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ epic_id: showRetro.id, project_id: id, created_by: currentUser.id, ...retroForm }),
+                        });
+                        setRetroSaving(false);
+                        setShowRetro(null);
+                        setRetroForm({ wins: '', improvements: '', lessons: '' });
+                        alert("✅ Đã lưu Tổng kết Epic thành công!");
+                    }} className="btn-primary" style={{ width: "100%", fontSize: 15, padding: "12px" }}>
+                        {retroSaving ? "⏳ Đang lưu..." : "🌟 Lưu Tổng kết"}
+                    </button>
+                </Modal>
+            )}
+
 
             {showAddModule && (
                 <Modal title="📦 Thêm Task" onClose={() => setShowAddModule(false)}>
