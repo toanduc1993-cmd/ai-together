@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, use, useRef } from "react";
 import { useUser } from "@/lib/UserContext";
-import { ArrowLeft, Plus, Package, ChevronDown, ChevronRight, Upload, Paperclip, FileText, Download, X, Trash2, UserPlus, Github, Link as LinkIcon, Check } from "lucide-react";
+import { ArrowLeft, Plus, Package, ChevronDown, ChevronRight, Upload, Paperclip, FileText, Download, X, Trash2, UserPlus, Github, Link as LinkIcon, Check, Copy } from "lucide-react";
 import Link from "next/link";
 import Modal from "@/components/Modal";
 import Input from "@/components/Input";
@@ -67,6 +67,7 @@ export default function ProjectDetailPage({ params }) {
     const [repoUrl, setRepoUrl] = useState("");
     const [repoSaving, setRepoSaving] = useState(false);
     const [syncing, setSyncing] = useState(false);
+    const [copiedRepo, setCopiedRepo] = useState(false);
     const [syncResult, setSyncResult] = useState(null);
     const [statusDropdownModule, setStatusDropdownModule] = useState(null);
 
@@ -446,116 +447,120 @@ export default function ProjectDetailPage({ params }) {
                 )}
             </div>
 
-            {/* ===== GITHUB REPO LINK SECTION (Chairman only) ===== */}
-            {isChairman && (
-                <div className="glass-card" style={{ padding: "14px 22px", marginBottom: 12 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <Github size={18} color="var(--text-secondary)" />
-                            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>GitHub Repo</span>
-                            {project?.github_repo && !editingRepo && (
-                                <span style={{ fontSize: 12, padding: "2px 10px", borderRadius: 8, background: "var(--green-bg)", color: "var(--green)", fontWeight: 600 }}>
-                                    ✓ Linked: {project.github_repo}
-                                </span>
-                            )}
-                        </div>
-                        {!editingRepo ? (
-                            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                                <button
-                                    onClick={() => { setEditingRepo(true); setRepoUrl(project?.github_repo || ""); }}
-                                    className="btn-ghost"
-                                    style={{ fontSize: 12, padding: "4px 12px", display: "flex", alignItems: "center", gap: 4 }}
-                                >
-                                    <LinkIcon size={13} /> {project?.github_repo ? "Đổi repo" : "Liên kết repo"}
-                                </button>
-                                {project?.github_repo && (
-                                    <button
-                                        disabled={syncing}
-                                        onClick={async () => {
-                                            setSyncing(true); setSyncResult(null);
-                                            try {
-                                                const res = await fetch("/api/webhooks/github", {
-                                                    method: "PUT",
-                                                    headers: { "Content-Type": "application/json" },
-                                                    body: JSON.stringify({ project_id: project.id }),
-                                                });
-                                                const data = await res.json();
-                                                setSyncResult(data);
-                                                if (data.files_synced > 0) reload();
-                                            } catch { setSyncResult({ error: "Sync failed" }); }
-                                            setSyncing(false);
-                                        }}
-                                        className="btn-primary"
-                                        style={{ fontSize: 12, padding: "4px 14px", display: "flex", alignItems: "center", gap: 4 }}
-                                    >
-                                        {syncing ? "⏳ Đang sync..." : "🔄 Sync từ GitHub"}
-                                    </button>
-                                )}
-                            </div>
-                        ) : (
-                            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                                <input
-                                    value={repoUrl}
-                                    onChange={e => setRepoUrl(e.target.value)}
-                                    placeholder="owner/repo (VD: toanduc1993-cmd/ai-together)"
-                                    style={{
-                                        padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border-primary)",
-                                        background: "var(--bg-tertiary)", color: "var(--text-primary)", fontSize: 13,
-                                        width: 320, outline: "none",
-                                    }}
-                                    autoFocus
-                                />
-                                <button
-                                    disabled={repoSaving}
-                                    onClick={async () => {
-                                        setRepoSaving(true);
-                                        try {
-                                            await fetch("/api/projects", {
-                                                method: "PUT",
-                                                headers: { "Content-Type": "application/json" },
-                                                body: JSON.stringify({ id: project.id, github_repo: repoUrl.trim() || null }),
-                                            });
-                                            reload();
-                                        } catch { }
-                                        setRepoSaving(false);
-                                        setEditingRepo(false);
-                                    }}
-                                    className="btn-primary"
-                                    style={{ padding: "6px 14px", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}
-                                >
-                                    <Check size={13} /> Lưu
-                                </button>
-                                <button onClick={() => setEditingRepo(false)} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: 4 }}>
-                                    <X size={14} />
-                                </button>
-                            </div>
+            {/* ===== GITHUB REPO LINK SECTION (All users can add/copy) ===== */}
+            <div className="glass-card" style={{ padding: "14px 22px", marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <Github size={18} color="var(--text-secondary)" />
+                        <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>GitHub Repo</span>
+                        {project?.github_repo && !editingRepo && (
+                            <a href={`https://github.com/${project.github_repo}`} target="_blank" rel="noopener noreferrer"
+                                style={{ fontSize: 12, padding: "2px 10px", borderRadius: 8, background: "var(--green-bg)", color: "var(--green)", fontWeight: 600, textDecoration: "none" }}>
+                                ✓ {project.github_repo}
+                            </a>
                         )}
                     </div>
-                    {editingRepo && (
-                        <div style={{ marginTop: 8, fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5 }}>
-                            💡 Sau khi lưu, vào GitHub repo → Settings → Webhooks → Add webhook:<br />
-                            • URL: <code style={{ background: "var(--bg-tertiary)", padding: "1px 6px", borderRadius: 4, fontSize: 11 }}>
-                                {typeof window !== 'undefined' ? window.location.origin : ''}/api/webhooks/github
-                            </code><br />
-                            • Content type: application/json<br />
-                            • Events: Push<br />
-                            Mỗi lần push file tài liệu (PDF, docx, xlsx...) sẽ tự động xuất hiện trong "Tài liệu dự án".
+                    {!editingRepo ? (
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                            {/* Copy link button */}
+                            {project?.github_repo && (
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(`https://github.com/${project.github_repo}`);
+                                        setCopiedRepo(true);
+                                        setTimeout(() => setCopiedRepo(false), 2000);
+                                    }}
+                                    className="btn-ghost"
+                                    style={{ fontSize: 12, padding: "4px 12px", display: "flex", alignItems: "center", gap: 4, color: copiedRepo ? "var(--green)" : undefined }}
+                                >
+                                    {copiedRepo ? <><Check size={13} /> Đã sao chép!</> : <><Copy size={13} /> Sao chép link</>}
+                                </button>
+                            )}
+                            {/* Edit repo button — any user */}
+                            <button
+                                onClick={() => { setEditingRepo(true); setRepoUrl(project?.github_repo || ""); }}
+                                className="btn-ghost"
+                                style={{ fontSize: 12, padding: "4px 12px", display: "flex", alignItems: "center", gap: 4 }}
+                            >
+                                <LinkIcon size={13} /> {project?.github_repo ? "Đổi repo" : "Gắn repo"}
+                            </button>
+                            {/* Sync button — chairman only */}
+                            {isChairman && project?.github_repo && (
+                                <button
+                                    disabled={syncing}
+                                    onClick={async () => {
+                                        setSyncing(true); setSyncResult(null);
+                                        try {
+                                            const res = await fetch("/api/webhooks/github", {
+                                                method: "PUT",
+                                                headers: { "Content-Type": "application/json" },
+                                                body: JSON.stringify({ project_id: project.id }),
+                                            });
+                                            const data = await res.json();
+                                            setSyncResult(data);
+                                            if (data.files_synced > 0) reload();
+                                        } catch { setSyncResult({ error: "Sync failed" }); }
+                                        setSyncing(false);
+                                    }}
+                                    className="btn-primary"
+                                    style={{ fontSize: 12, padding: "4px 14px", display: "flex", alignItems: "center", gap: 4 }}
+                                >
+                                    {syncing ? "⏳ Đang sync..." : "🔄 Sync từ GitHub"}
+                                </button>
+                            )}
                         </div>
-                    )}
-                    {syncResult && (
-                        <div style={{ marginTop: 8, fontSize: 12, padding: "8px 12px", borderRadius: 8, background: syncResult.error ? "rgba(239,68,68,0.1)" : "var(--green-bg)", color: syncResult.error ? "#EF4444" : "var(--green)" }}>
-                            {syncResult.error ? `❌ ${syncResult.error}` : `✅ Đã sync ${syncResult.files_synced} file mới (tổng ${syncResult.total_docs_in_repo} tài liệu trong repo)`}
-                            {syncResult.files?.length > 0 && <span style={{ marginLeft: 8, fontWeight: 600 }}>{syncResult.files.join(", ")}</span>}
+                    ) : (
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                            <input
+                                value={repoUrl}
+                                onChange={e => setRepoUrl(e.target.value)}
+                                placeholder="owner/repo (VD: toanduc1993-cmd/ai-together)"
+                                style={{
+                                    padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border-primary)",
+                                    background: "var(--bg-tertiary)", color: "var(--text-primary)", fontSize: 13,
+                                    width: 320, outline: "none",
+                                }}
+                                autoFocus
+                            />
+                            <button
+                                disabled={repoSaving}
+                                onClick={async () => {
+                                    setRepoSaving(true);
+                                    try {
+                                        await fetch("/api/projects", {
+                                            method: "PUT",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ id: project.id, github_repo: repoUrl.trim() || null }),
+                                        });
+                                        reload();
+                                    } catch { }
+                                    setRepoSaving(false);
+                                    setEditingRepo(false);
+                                }}
+                                className="btn-primary"
+                                style={{ padding: "6px 14px", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}
+                            >
+                                <Check size={13} /> Lưu
+                            </button>
+                            <button onClick={() => setEditingRepo(false)} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: 4 }}>
+                                <X size={14} />
+                            </button>
                         </div>
                     )}
                 </div>
-            )}
-            {/* Show badge for non-chairman if repo is linked */}
-            {!isChairman && project?.github_repo && (
-                <div style={{ marginBottom: 12, fontSize: 12, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 6 }}>
-                    <Github size={14} /> Linked: <a href={`https://github.com/${project.github_repo}`} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>{project.github_repo}</a>
-                </div>
-            )}
+                {editingRepo && (
+                    <div style={{ marginTop: 8, fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5 }}>
+                        💡 Nhập dạng <strong>owner/repo</strong> (VD: toanduc1993-cmd/ai-together).<br />
+                        {isChairman && <>Sau khi lưu, có thể vào GitHub repo → Settings → Webhooks → Add webhook để tự động sync tài liệu.</>}
+                    </div>
+                )}
+                {syncResult && (
+                    <div style={{ marginTop: 8, fontSize: 12, padding: "8px 12px", borderRadius: 8, background: syncResult.error ? "rgba(239,68,68,0.1)" : "var(--green-bg)", color: syncResult.error ? "#EF4444" : "var(--green)" }}>
+                        {syncResult.error ? `❌ ${syncResult.error}` : `✅ Đã sync ${syncResult.files_synced} file mới (tổng ${syncResult.total_docs_in_repo} tài liệu trong repo)`}
+                        {syncResult.files?.length > 0 && <span style={{ marginLeft: 8, fontWeight: 600 }}>{syncResult.files.join(", ")}</span>}
+                    </div>
+                )}
+            </div>
 
             {/* ===== PROJECT DOCUMENTS SECTION ===== */}
             <div className="glass-card" style={{ padding: "18px 22px", marginBottom: 20 }}>

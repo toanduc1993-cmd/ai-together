@@ -55,10 +55,11 @@ CREATE TABLE IF NOT EXISTS modules (
   title TEXT NOT NULL,
   description TEXT DEFAULT '',
   assigned_to UUID REFERENCES users(id),
-  status TEXT DEFAULT 'planned' CHECK (status IN ('planned','in_progress','review','submitted','approved','changes_requested','rejected','done')),
+  status TEXT DEFAULT 'planned' CHECK (status IN ('planned','in_progress','in_review','review','submitted','approved','changes_requested','rejected','done')),
   priority TEXT DEFAULT 'medium' CHECK (priority IN ('critical','high','medium','low')),
   deadline DATE,
   progress_pct INTEGER DEFAULT 0 CHECK (progress_pct >= 0 AND progress_pct <= 100),
+  review_comment TEXT DEFAULT '',
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
