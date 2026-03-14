@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getEpicsByProject, createEpic, updateEpic, deleteEpic } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const project_id = searchParams.get('project_id');

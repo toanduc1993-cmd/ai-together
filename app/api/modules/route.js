@@ -1,6 +1,8 @@
 import { getModulesByProject, getModuleById, getAllModules, createModule, updateModule, deleteModule, createActivity, createNotification, setModuleAssignees } from "@/lib/supabase";
 import { NextResponse } from "next/server";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req) {
     try {
         const { searchParams } = new URL(req.url);
