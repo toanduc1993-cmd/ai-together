@@ -48,6 +48,7 @@ export async function POST(req) {
             priority: body.priority || "medium",
             deadline: body.deadline || null,
             progress_pct: 0,
+            labels: body.labels || [],
         });
 
         // Sync multi-assign table

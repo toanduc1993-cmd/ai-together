@@ -215,7 +215,7 @@ export default function ProjectDetailPage({ params }) {
         setError("");
         const res = await fetch("/api/modules", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...form, project_id: id, created_by: currentUser.id, epic_id: form.epic_id }),
+            body: JSON.stringify({ ...form, project_id: id, created_by: currentUser.id, epic_id: form.epic_id, labels: form.labels || [] }),
         });
         if (!res.ok) { setError((await res.json()).error); return; }
         const newModule = await res.json();
@@ -666,7 +666,6 @@ export default function ProjectDetailPage({ params }) {
                     <Package size={ICO.md} color="var(--accent)" /> Epics & Tasks ({epics.length} Epics, {modules.length} Tasks)
                 </h3>
                 <div style={{ display: "flex", gap: 8 }}>
-                    {/* Peer assignment button — ANY user can assign */}
                     <button onClick={() => setShowAssignModal(true)} className="btn-ghost" style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13 }}>
                         <UserPlus size={ICO.sm} /> Giao Task
                     </button>
@@ -683,6 +682,26 @@ export default function ProjectDetailPage({ params }) {
                 </div>
             </div>
 
+            {/* Feature #3 — Overdue Banner */}
+            {(() => {
+                const now = new Date();
+                const overdueTasks = modules.filter(m => m.deadline && new Date(m.deadline) < now && m.status !== "done" && m.status !== "approved");
+                if (overdueTasks.length === 0) return null;
+                return (
+                    <div style={{
+                        background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)",
+                        borderRadius: 12, padding: "12px 18px", marginBottom: 18,
+                        display: "flex", alignItems: "center", gap: 12,
+                    }}>
+                        <span style={{ fontSize: 20 }}>🔴</span>
+                        <div>
+                            <div style={{ fontWeight: 700, fontSize: 14, color: "#EF4444" }}>Có {overdueTasks.length} Task đã quá hạn!</div>
+                            <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>Kiểm tra và cập nhật deadline hoặc trạng thái cho các task quá hạn bên dưới.</div>
+                        </div>
+                    </div>
+                );
+            })()}
+
             {/* Epics list — non-chairman only sees assigned Tasks inside Epics */}
             {(() => {
                 if (epics.length === 0) {
@@ -695,27 +714,63 @@ export default function ProjectDetailPage({ params }) {
 
                 // Sort epics by creation time
                 const sortedEpics = [...epics].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                const now = new Date();
 
                 return sortedEpics.map(epic => {
                     // Epics without an ID match Uncategorized modules if epic_id is null
                     const epicModules = modules.filter(m => m.epic_id === epic.id || (epic.title.includes("Chưa phân loại") && !m.epic_id));
                     
+                    // Feature #3: Sort overdue tasks to top
+                    const sortedEpicModules = [...epicModules].sort((a, b) => {
+                        const aOverdue = a.deadline && new Date(a.deadline) < now && a.status !== "done";
+                        const bOverdue = b.deadline && new Date(b.deadline) < now && b.status !== "done";
+                        return (bOverdue ? 1 : 0) - (aOverdue ? 1 : 0);
+                    });
+
                     // Filter down to visible modules for current user
-                    const visibleModulesInEpic = isChairman ? epicModules : epicModules.filter(m => m.assigned_to === currentUser?.id || (m.assignees || []).some(a => a.id === currentUser?.id));
+                    const visibleModulesInEpic = isChairman ? sortedEpicModules : sortedEpicModules.filter(m => m.assigned_to === currentUser?.id || (m.assignees || []).some(a => a.id === currentUser?.id));
                     
+                    // Feature #1: Epic progress
+                    const epicDoneTasks = epicModules.filter(m => m.status === "done" || m.status === "approved").length;
+                    const epicTotalTasks = epicModules.length;
+                    const epicProgress = epicTotalTasks > 0 ? Math.round((epicDoneTasks / epicTotalTasks) * 100) : 0;
+                    const epicHasOverdue = epicModules.some(m => m.deadline && new Date(m.deadline) < now && m.status !== "done" && m.status !== "approved");
+                    const epicStatusColor = epicHasOverdue ? "#EF4444" : epicProgress === 100 ? "#10B981" : epicProgress > 0 ? "#F59E0B" : "var(--accent)";
+                    const epicStatusLabel = epicProgress === 100 ? "✅ Hoàn thành" : epicProgress > 0 ? "🔨 Đang làm" : "📋 Kế hoạch";
+
                     // Always show expanded if there's only 1 default Epic and it has items, otherwise respect state
                     const isEpicExpanded = expandedEpic === epic.id || (epics.length === 1 && visibleModulesInEpic.length > 0);
 
                     return (
-                        <div key={epic.id} className="glass-card" style={{ marginBottom: 16, overflow: "hidden", border: isEpicExpanded ? "1px solid var(--border-active)" : "1px solid var(--border-primary)" }}>
+                        <div key={epic.id} className="glass-card" style={{ marginBottom: 16, overflow: "hidden", border: epicHasOverdue ? "1px solid rgba(239,68,68,0.4)" : isEpicExpanded ? "1px solid var(--border-active)" : "1px solid var(--border-primary)" }}>
+                            {/* Feature #1: Epic top progress strip */}
+                            {epicTotalTasks > 0 && (
+                                <div style={{ height: 3, background: "var(--bg-tertiary)" }}>
+                                    <div style={{ height: "100%", width: `${epicProgress}%`, background: epicStatusColor, transition: "width 0.4s ease", borderRadius: 2 }} />
+                                </div>
+                            )}
                             {/* Epic Header */}
                             <div onClick={() => toggleEpic(epic.id)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", cursor: "pointer", background: isEpicExpanded ? "var(--bg-secondary)" : "transparent" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
                                     {isEpicExpanded ? <ChevronDown size={ICO.md} color="var(--accent)" /> : <ChevronRight size={ICO.md} color="var(--text-muted)" />}
-                                    <h4 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
-                                        {epic.title} 
-                                        <span style={{ fontSize: 12, fontWeight: 400, color: "var(--text-muted)", background: "var(--bg-tertiary)", padding: "2px 8px", borderRadius: 12 }}>{epicModules.length} Tasks</span>
-                                    </h4>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                            {epic.title}
+                                            <span style={{ fontSize: 12, fontWeight: 400, color: "var(--text-muted)", background: "var(--bg-tertiary)", padding: "2px 8px", borderRadius: 12 }}>{epicModules.length} Tasks</span>
+                                            {epicHasOverdue && <span style={{ fontSize: 11, fontWeight: 700, color: "#EF4444", background: "rgba(239,68,68,0.1)", padding: "2px 8px", borderRadius: 12 }}>⚠️ Quá hạn</span>}
+                                        </h4>
+                                        {/* Feature #1: Epic progress bar + status */}
+                                        {epicTotalTasks > 0 && (
+                                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                                                <div style={{ width: 120, height: 5, background: "var(--bg-tertiary)", borderRadius: 3, overflow: "hidden" }}>
+                                                    <div style={{ height: "100%", width: `${epicProgress}%`, background: epicStatusColor, borderRadius: 3, transition: "width 0.4s ease" }} />
+                                                </div>
+                                                <span style={{ fontSize: 12, fontWeight: 700, color: epicStatusColor }}>{epicProgress}%</span>
+                                                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{epicDoneTasks}/{epicTotalTasks} xong</span>
+                                                <span style={{ fontSize: 11, color: epicStatusColor, fontWeight: 600 }}>{epicStatusLabel}</span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 
                                 {isChairman && !epic.title.includes("Chưa phân loại") && (
@@ -748,8 +803,10 @@ export default function ProjectDetailPage({ params }) {
                                             const canComplete = isOwner && (mod.status === "in_progress" || mod.status === "changes_requested");
                                             const canReview = isChairman && mod.status === "in_review";
 
+                                            // Feature #3: Check if this task is overdue
+                                            const isTaskOverdue = mod.deadline && new Date(mod.deadline) < now && mod.status !== "done" && mod.status !== "approved";
                                             return (
-                                                <div key={mod.id} id={`module-${mod.id}`} style={{ marginBottom: 8, overflow: "hidden", background: "var(--bg-elevated)", border: "1px solid var(--border-primary)", borderRadius: "var(--radius-md)", borderColor: isExpanded ? "var(--border-active)" : undefined }}>
+                                                <div key={mod.id} id={`module-${mod.id}`} style={{ marginBottom: 8, overflow: "hidden", background: "var(--bg-elevated)", borderRadius: "var(--radius-md)", border: isTaskOverdue ? "1px solid rgba(239,68,68,0.5)" : isExpanded ? "1px solid var(--border-active)" : "1px solid var(--border-primary)" }}>
                             {/* Module header */}
                             <div onClick={() => toggleModule(mod.id)} style={{ display: "flex", alignItems: "center", padding: "14px 18px", cursor: "pointer", gap: 12 }}>
                                 {isExpanded ? <ChevronDown size={ICO.md} color="var(--accent)" /> : <ChevronRight size={ICO.md} color="var(--text-muted)" />}
@@ -831,6 +888,14 @@ export default function ProjectDetailPage({ params }) {
                                             );
                                         })()}
                                         <span style={{ fontSize: 12, fontWeight: 600, color: pc.color, background: `${pc.color}12`, padding: "2px 10px", borderRadius: 8 }}>{pc.label}</span>
+                                        {/* Feature #5: Labels/Tags */}
+                                        {(mod.labels || []).map((lbl, li) => {
+                                            const labelColors = ["#6366F1", "#10B981", "#F59E0B", "#3B82F6", "#8B5CF6", "#EC4899", "#EF4444", "#06B6D4"];
+                                            const lc = labelColors[li % labelColors.length];
+                                            return (
+                                                <span key={li} style={{ fontSize: 11, fontWeight: 700, color: lc, background: `${lc}18`, padding: "1px 8px", borderRadius: 8, letterSpacing: 0.2 }}>{lbl}</span>
+                                            );
+                                        })}
                                         {/* Assignees — multi-avatar display */}
                                         {isChairman ? (
                                             <span
@@ -879,7 +944,12 @@ export default function ProjectDetailPage({ params }) {
                                         ) : (
                                             moduleAssignees.length > 0 && <span style={{ fontSize: 13, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>👤 {moduleAssignees.map(a => a.display_name).join(", ")}</span>
                                         )}
-                                        {mod.deadline && <span style={{ fontSize: 13, color: "var(--text-muted)" }}>📅 {new Date(mod.deadline).toLocaleDateString("vi-VN")}</span>}
+                                        {mod.deadline && (
+                                            <span style={{ fontSize: 13, color: isTaskOverdue ? "#EF4444" : "var(--text-muted)", fontWeight: isTaskOverdue ? 700 : 400, display: "flex", alignItems: "center", gap: 3 }}>
+                                                {isTaskOverdue ? "🔴" : "📅"} {new Date(mod.deadline).toLocaleDateString("vi-VN")}
+                                                {isTaskOverdue && <span style={{ fontSize: 11, background: "rgba(239,68,68,0.1)", color: "#EF4444", padding: "1px 6px", borderRadius: 6, fontWeight: 700 }}>Quá hạn!</span>}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1196,6 +1266,25 @@ export default function ProjectDetailPage({ params }) {
                         </Select>
                     </div>
                     <Input label="Deadline" type="date" value={form.deadline || ""} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))} />
+                    {/* Feature #5: Labels input */}
+                    <div style={{ marginTop: 4 }}>
+                        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6, display: "block" }}>🏷️ Labels (phân cách bằng dấu phẩy)</label>
+                        <input
+                            value={(form.labels || []).join(", ")}
+                            onChange={e => setForm(f => ({ ...f, labels: e.target.value.split(",").map(t => t.trim()).filter(Boolean) }))}
+                            placeholder="Ví dụ: FE, Backend, Bug, Urgent..."
+                            className="input-field"
+                            style={{ width: "100%", fontSize: 13 }}
+                        />
+                        {(form.labels || []).length > 0 && (
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                                {form.labels.map((lbl, li) => {
+                                    const lc = ["#6366F1", "#10B981", "#F59E0B", "#3B82F6", "#8B5CF6", "#EC4899", "#EF4444", "#06B6D4"][li % 8];
+                                    return <span key={li} style={{ fontSize: 12, fontWeight: 700, color: lc, background: `${lc}18`, padding: "2px 10px", borderRadius: 20 }}>{lbl}</span>;
+                                })}
+                            </div>
+                        )}
+                    </div>
                     <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 8, lineHeight: 1.5 }}>
                         💡 Sau khi tạo Task, bạn có thể tạo checklist con và đính kèm tài liệu nghiệp vụ.
                     </p>
